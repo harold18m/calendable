@@ -164,12 +164,12 @@ export const analyzeAvailability = new FunctionTool({
 // Create calendar event
 export const createCalendarEvent = new FunctionTool({
     name: "create_calendar_event",
-    description: "Create a new event in Google Calendar",
+    description: "Create a new event in Google Calendar. IMPORTANT: Only creates events in FUTURE dates. Will reject past dates.",
     inputSchema: {
         type: "object",
         properties: {
             title: { type: "string", description: "Event title" },
-            start_time: { type: "string", description: "Start time in ISO format (YYYY-MM-DDTHH:MM:SS)" },
+            start_time: { type: "string", description: "Start time in ISO format (YYYY-MM-DDTHH:MM:SS). Must be a FUTURE date." },
             end_time: { type: "string", description: "End time in ISO format (YYYY-MM-DDTHH:MM:SS)" },
             description: { type: "string", description: "Event description" },
             recurring: { type: "boolean", description: "Whether this is a recurring event" },
@@ -185,6 +185,18 @@ export const createCalendarEvent = new FunctionTool({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     callback: async (input: any) => {
         try {
+            // Validar que la fecha sea futura
+            const startDate = new Date(input.start_time);
+            const now = new Date();
+
+            if (startDate < now) {
+                return JSON.stringify({
+                    error: "No se pueden crear eventos en fechas pasadas. Por favor usa una fecha futura.",
+                    provided_date: input.start_time,
+                    current_date: now.toISOString(),
+                });
+            }
+
             const calendar = getCalendarClient(input.access_token);
 
             const event: {
