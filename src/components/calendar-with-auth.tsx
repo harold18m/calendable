@@ -395,7 +395,7 @@ function DayView({
                 {HOURS.map((hour) => (
                     <div
                         key={hour}
-                        className="flex border-b border-divider"
+                        className="flex"
                         style={{ height: `${hourHeight}px` }}
                     >
                         {/* Time label */}
@@ -405,7 +405,7 @@ function DayView({
                             </span>
                         </div>
                         {/* Grid cell */}
-                        <div className="flex-1 border-l border-divider relative" />
+                        <div className="flex-1 border-l border-b border-divider relative" />
                     </div>
                 ))}
 
@@ -487,13 +487,13 @@ function WeekView({
         <div className="border border-divider rounded-lg overflow-hidden h-full flex flex-col">
             {/* Days header */}
             <div className="grid grid-cols-[56px_repeat(7,1fr)] bg-default-50 border-b border-divider shrink-0">
-                <div className="border-r border-divider" />
+                <div />
                 {weekDates.map((date, i) => {
                     const isToday = isSameDay(date, today);
                     return (
                         <div
                             key={i}
-                            className={`text-center py-2 ${i > 0 ? 'border-l border-divider' : ''}`}
+                            className={`text-center py-2 border-l border-divider`}
                         >
                             <div className="text-[10px] text-default-400 uppercase">{DAYS[date.getDay()]}</div>
                             <div className={`text-sm font-medium ${isToday ? 'bg-primary text-white rounded-full w-6 h-6 flex items-center justify-center mx-auto' : ''}`}>
@@ -525,11 +525,11 @@ function WeekView({
                 {HOURS.map((hour) => (
                     <div
                         key={hour}
-                        className="grid grid-cols-[56px_repeat(7,1fr)] border-b border-divider"
+                        className="grid grid-cols-[56px_repeat(7,1fr)]"
                         style={{ height: `${hourHeight}px` }}
                     >
                         {/* Time label */}
-                        <div className="pr-2 text-right border-r border-divider">
+                        <div className="pr-2 text-right">
                             <span className="text-[10px] text-default-400 -mt-2 block">
                                 {hour.toString().padStart(2, '0')}:00
                             </span>
@@ -540,7 +540,7 @@ function WeekView({
                             return (
                                 <div
                                     key={i}
-                                    className={`${i > 0 ? 'border-l border-divider' : ''} ${isToday ? 'bg-primary/5' : ''}`}
+                                    className={`border-l border-b border-divider ${isToday ? 'bg-primary/5' : ''}`}
                                 />
                             );
                         })}
@@ -623,7 +623,7 @@ function MonthView({
                     return (
                         <div
                             key={i}
-                            className={`min-h-[60px] p-0.5 ${i % 7 > 0 ? 'border-l border-divider' : ''} ${!isFirstRow ? 'border-t border-divider' : ''} ${!isCurrentMonth ? 'bg-default-50' : ''} ${isToday ? 'bg-primary/5' : ''}`}
+                            className={`min-h-15 p-0.5 ${i % 7 > 0 ? 'border-l border-divider' : ''} ${!isFirstRow ? 'border-t border-divider' : ''} ${!isCurrentMonth ? 'bg-default-50' : ''} ${isToday ? 'bg-primary/5' : ''}`}
                         >
                             <div className={`text-[10px] text-center mb-0.5 ${isToday ? 'bg-primary text-white rounded-full w-4 h-4 flex items-center justify-center mx-auto' : ''} ${!isCurrentMonth ? 'text-default-300' : 'text-default-600'}`}>
                                 {date.getDate()}

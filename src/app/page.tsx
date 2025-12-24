@@ -30,6 +30,7 @@ export default function HomePage() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const [isChatOpen, setIsChatOpen] = useState(true);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -106,6 +107,25 @@ export default function HomePage() {
               <div className="flex items-center gap-2">
                 <ThemeToggle />
 
+                {/* Chat Toggle Button */}
+                <Button
+                  isIconOnly
+                  variant="light"
+                  onPress={() => setIsChatOpen(!isChatOpen)}
+                  className="w-10 h-10 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  aria-label={isChatOpen ? "Cerrar chat" : "Abrir chat"}
+                >
+                  {isChatOpen ? (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+                    </svg>
+                  )}
+                </Button>
+
                 {session?.user && (
                   <Dropdown placement="bottom-end">
                     <DropdownTrigger>
@@ -158,20 +178,37 @@ export default function HomePage() {
           </div>
 
           {/* Sidebar - Chat (Right) - Notion style */}
-          <div className="w-105 border-l border-zinc-200 dark:border-zinc-800 flex flex-col bg-white dark:bg-zinc-900 shrink-0">
+          <div
+            className={`border-l border-zinc-200 dark:border-zinc-800 flex flex-col bg-white dark:bg-zinc-900 shrink-0 transition-all duration-300 ease-in-out ${isChatOpen ? 'w-105' : 'w-0 border-l-0 overflow-hidden'
+              }`}
+          >
             {/* Chat Header */}
-            <div className="p-5 border-b border-zinc-200 dark:border-zinc-800">
-              <div className="flex items-center gap-4">
-                <div className="text-3xl">💬</div>
-                <div>
-                  <h2 className="text-xl font-semibold text-zinc-900 dark:text-white">Asistente IA</h2>
-                  <p className="text-base text-zinc-500">Pregúntame sobre tus rutinas</p>
+            <div className="p-5 min-w-105">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="text-3xl">💬</div>
+                  <div>
+                    <h2 className="text-xl font-semibold text-zinc-900 dark:text-white">Asistente IA</h2>
+                    <p className="text-base text-zinc-500">Pregúntame sobre tus rutinas</p>
+                  </div>
                 </div>
+                <Button
+                  isIconOnly
+                  variant="light"
+                  size="sm"
+                  onPress={() => setIsChatOpen(false)}
+                  className="hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  aria-label="Cerrar chat"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </Button>
               </div>
             </div>
 
             {/* Messages */}
-            <ScrollShadow className="flex-1 p-5 space-y-5 overflow-y-auto">
+            <ScrollShadow className="flex-1 p-5 space-y-5 overflow-y-auto min-w-105">
               {messages.length === 0 && (
                 <div className="text-center py-10">
                   <div className="text-5xl mb-4">👋</div>
@@ -240,7 +277,7 @@ export default function HomePage() {
             </ScrollShadow>
 
             {/* Input - Notion style */}
-            <form onSubmit={handleSubmit} className="p-5 border-t border-zinc-200 dark:border-zinc-800">
+            <form onSubmit={handleSubmit} className="p-5 border-t border-zinc-200 dark:border-zinc-800 min-w-105">
               <div className="flex gap-3">
                 <Input
                   value={input}
