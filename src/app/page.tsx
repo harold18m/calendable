@@ -94,14 +94,10 @@ export default function HomePage() {
         <div className="flex h-full">
           {/* Main Content */}
           <div className="flex-1 flex flex-col overflow-hidden">
-            {/* Top Bar - Notion style */}
-            <div className="shrink-0 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="text-3xl">📅</div>
-                <div>
-                  <h1 className="text-2xl font-bold text-zinc-900 dark:text-white">Routine Agent</h1>
-                  <p className="text-base text-zinc-500">Gestiona tus rutinas con inteligencia artificial</p>
-                </div>
+            {/* Top Bar */}
+            <div className="shrink-0 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 px-4 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <h1 className="text-xl font-semibold text-zinc-900 dark:text-white">Routine Agent</h1>
               </div>
 
               <div className="flex items-center gap-2">
@@ -168,8 +164,8 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* Calendar Content - Notion style */}
-            <div className="flex-1 flex flex-col overflow-hidden p-6 bg-zinc-50 dark:bg-zinc-900/50">
+            {/* Calendar Content */}
+            <div className="flex-1 flex flex-col overflow-hidden p-4 bg-zinc-50 dark:bg-zinc-900/50">
               <CalendarWithAuth
                 timezone="America/Lima"
                 onAccessTokenReady={(token) => console.log("Token listo para API")}
@@ -177,21 +173,15 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Sidebar - Chat (Right) - Notion style */}
+          {/* Sidebar - Chat */}
           <div
             className={`border-l border-zinc-200 dark:border-zinc-800 flex flex-col bg-white dark:bg-zinc-900 shrink-0 transition-all duration-300 ease-in-out ${isChatOpen ? 'w-105' : 'w-0 border-l-0 overflow-hidden'
               }`}
           >
             {/* Chat Header */}
-            <div className="p-5 min-w-105">
+            <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 min-w-105">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="text-3xl">💬</div>
-                  <div>
-                    <h2 className="text-xl font-semibold text-zinc-900 dark:text-white">Asistente IA</h2>
-                    <p className="text-base text-zinc-500">Pregúntame sobre tus rutinas</p>
-                  </div>
-                </div>
+                <h2 className="text-base font-medium text-zinc-900 dark:text-white">Asistente IA</h2>
                 <Button
                   isIconOnly
                   variant="light"
@@ -208,14 +198,13 @@ export default function HomePage() {
             </div>
 
             {/* Messages */}
-            <ScrollShadow className="flex-1 p-5 space-y-5 overflow-y-auto min-w-105">
+            <ScrollShadow className="flex-1 p-4 space-y-4 overflow-y-auto min-w-105">
               {messages.length === 0 && (
-                <div className="text-center py-10">
-                  <div className="text-5xl mb-4">👋</div>
-                  <p className="text-zinc-600 dark:text-zinc-400 text-lg mb-6">
-                    ¡Hola! Soy tu asistente de rutinas.
+                <div className="text-center py-8">
+                  <p className="text-zinc-500 dark:text-zinc-400 text-sm mb-4">
+                    ¿En qué puedo ayudarte?
                   </p>
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     <SuggestionButton
                       text="📆 ¿Qué eventos tengo hoy?"
                       onClick={() => {
@@ -247,27 +236,27 @@ export default function HomePage() {
                   className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
                 >
                   <div
-                    className={`max-w-[85%] rounded-2xl px-5 py-3 ${message.role === "user"
+                    className={`max-w-[85%] rounded-lg px-3 py-2 ${message.role === "user"
                       ? "bg-blue-500 text-white"
                       : "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white"
                       }`}
                   >
-                    <p className="text-base leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
                   </div>
                 </div>
               ))}
 
               {isLoading && (
                 <div className="flex justify-start">
-                  <div className="bg-zinc-100 dark:bg-zinc-800 rounded-2xl px-5 py-4">
-                    <Spinner size="md" />
+                  <div className="bg-zinc-100 dark:bg-zinc-800 rounded-lg px-3 py-2">
+                    <Spinner size="sm" />
                   </div>
                 </div>
               )}
 
               {error && (
                 <div className="flex justify-center">
-                  <div className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-4 py-2 rounded-lg text-base">
+                  <div className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-3 py-2 rounded text-sm">
                     Error: {error.message}
                   </div>
                 </div>
@@ -276,31 +265,31 @@ export default function HomePage() {
               <div ref={messagesEndRef} />
             </ScrollShadow>
 
-            {/* Input - Notion style */}
-            <form onSubmit={handleSubmit} className="p-5 border-t border-zinc-200 dark:border-zinc-800 min-w-105">
-              <div className="flex gap-3">
+            {/* Input */}
+            <form onSubmit={handleSubmit} className="p-4 border-t border-zinc-200 dark:border-zinc-800 min-w-105">
+              <div className="flex gap-2">
                 <Input
                   value={input}
                   onChange={handleInputChange}
                   placeholder="Escribe un mensaje..."
-                  size="lg"
-                  radius="lg"
+                  size="md"
+                  radius="md"
                   classNames={{
-                    input: "text-base",
-                    inputWrapper: "bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 h-14",
+                    input: "text-sm",
+                    inputWrapper: "bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700",
                   }}
                 />
                 <Button
                   type="submit"
                   isIconOnly
                   color="primary"
-                  radius="lg"
-                  size="lg"
+                  radius="md"
+                  size="md"
                   isLoading={isLoading}
                   isDisabled={!input?.trim()}
-                  className="h-14 w-14 bg-blue-500 hover:bg-blue-600"
+                  className="bg-blue-500 hover:bg-blue-600"
                 >
-                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
                   </svg>
                 </Button>
@@ -318,7 +307,7 @@ function SuggestionButton({ text, onClick }: { text: string; onClick: () => void
     <button
       type="button"
       onClick={onClick}
-      className="w-full text-left px-4 py-3 text-base text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-xl transition-colors"
+      className="w-full text-left px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-md transition-colors"
     >
       {text}
     </button>
