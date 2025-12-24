@@ -21,7 +21,127 @@ interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
+  isRoutineProposal?: boolean;
+  confirmed?: boolean;
 }
+
+interface PreviewEvent {
+  id: string;
+  summary: string;
+  start: { dateTime: string };
+  end: { dateTime: string };
+  isPreview: boolean;
+}
+
+// Detectar si un mensaje del asistente contiene una propuesta de rutina
+const isRoutineProposal = (content: string): boolean => {
+  const keywords = [
+    "propongo", "propuesta", "confirma", "¿te parece", "¿quieres que",
+    "crear el evento", "crear los eventos", "agendar", "programar",
+    "lunes", "martes", "miércoles", "jueves", "viernes",
+    "frecuencia", "duración", "horario"
+  ];
+  const lowerContent = content.toLowerCase();
+  return keywords.filter(k => lowerContent.includes(k)).length >= 2;
+};
+
+// Detectar si la respuesta indica que se crearon eventos
+const didCreateEvents = (content: string): boolean => {
+  const keywords = [
+    "creado", "creé", "agregado", "agregué", "programado", "programé",
+    "agendado", "agendé", "listo", "evento creado", "eventos creados",
+    "añadido", "añadí", "registrado", "registré", "calendario actualizado"
+  ];
+  const lowerContent = content.toLowerCase();
+  return keywords.some(k => lowerContent.includes(k));
+};
+
+// Parsear propuesta del agente para generar eventos de preview
+const parseRoutineProposal = (content: string): PreviewEvent[] => {
+  const events: PreviewEvent[] = [];
+  const lowerContent = content.toLowerCase();
+
+  // Mapeo de días en español a número (0 = domingo)
+  const dayMap: { [key: string]: number } = {
+    'domingo': 0, 'lunes': 1, 'martes': 2, 'miércoles': 3,
+    'jueves': 4, 'viernes': 5, 'sábado': 6
+  };
+
+  // Buscar patrones de hora (ej: "07:00", "7:00 AM", "19:00")
+  const timeRegex = /(\d{1,2}):(\d{2})\s*(am|pm)?/gi;
+  const times: string[] = [];
+  let match;
+  while ((match = timeRegex.exec(content)) !== null) {
+    let hour = parseInt(match[1]);
+    const minute = match[2];
+    const ampm = match[3]?.toLowerCase();
+    if (ampm === 'pm' && hour < 12) hour += 12;
+    if (ampm === 'am' && hour === 12) hour = 0;
+    times.push(`${hour.toString().padStart(2, '0')}:${minute}`);
+  }
+
+  // Buscar días mencionados
+  const daysFound: number[] = [];
+  Object.entries(dayMap).forEach(([dayName, dayNum]) => {
+    if (lowerContent.includes(dayName)) {
+      daysFound.push(dayNum);
+    }
+  });
+
+  // Buscar nombre de la rutina
+  let routineName = "Nueva Rutina";
+  const routinePatterns = [
+    /rutina\s+de\s+(\w+)/i,
+    /(\w+)\s+rutina/i,
+    /para\s+(\w+)/i,
+  ];
+  for (const pattern of routinePatterns) {
+    const nameMatch = content.match(pattern);
+    if (nameMatch) {
+      routineName = nameMatch[1].charAt(0).toUpperCase() + nameMatch[1].slice(1);
+      break;
+    }
+  }
+
+  // Buscar duración (ej: "30 minutos", "1 hora")
+  let durationMinutes = 30;
+  const durationMatch = content.match(/(\d+)\s*(minutos?|min|hora?s?)/i);
+  if (durationMatch) {
+    const value = parseInt(durationMatch[1]);
+    const unit = durationMatch[2].toLowerCase();
+    durationMinutes = unit.startsWith('hora') ? value * 60 : value;
+  }
+
+  // Si encontramos días y horas, crear eventos preview
+  if (daysFound.length > 0 && times.length > 0) {
+    const startTime = times[0];
+    const today = new Date();
+
+    daysFound.forEach((targetDay, idx) => {
+      // Encontrar la próxima fecha para este día
+      const daysUntilTarget = (targetDay - today.getDay() + 7) % 7 || 7;
+      const eventDate = new Date(today);
+      eventDate.setDate(today.getDate() + daysUntilTarget);
+
+      const [startHour, startMin] = startTime.split(':').map(Number);
+      const startDateTime = new Date(eventDate);
+      startDateTime.setHours(startHour, startMin, 0, 0);
+
+      const endDateTime = new Date(startDateTime);
+      endDateTime.setMinutes(endDateTime.getMinutes() + durationMinutes);
+
+      events.push({
+        id: `preview-${Date.now()}-${idx}`,
+        summary: routineName,
+        start: { dateTime: startDateTime.toISOString() },
+        end: { dateTime: endDateTime.toISOString() },
+        isPreview: true,
+      });
+    });
+  }
+
+  return events;
+};
 
 export default function HomePage() {
   const { data: session } = useSession();
@@ -31,6 +151,8 @@ export default function HomePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(true);
+  const calendarRefreshRef = useRef<(() => Promise<void>) | null>(null);
+  const [previewEvents, setPreviewEvents] = useState<PreviewEvent[]>([]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -64,7 +186,91 @@ export default function HomePage() {
         }),
       });
 
+      // Manejar diferentes códigos de error
       if (!response.ok) {
+        if (response.status === 429) {
+          const text = await response.text();
+          throw new Error(text || "Servicio ocupado. Intenta de nuevo en unos segundos.");
+        }
+        throw new Error("Error en la respuesta del servidor");
+      }
+
+      const text = await response.text();
+      const isProposal = isRoutineProposal(text);
+
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: text,
+        isRoutineProposal: isProposal,
+        confirmed: false,
+      };
+
+      setMessages((prev) => [...prev, assistantMessage]);
+
+      // Si es una propuesta, generar eventos preview
+      if (isProposal) {
+        const parsedEvents = parseRoutineProposal(text);
+        if (parsedEvents.length > 0) {
+          setPreviewEvents(parsedEvents);
+        }
+      }
+
+      // Si se crearon eventos, actualizar el calendario y limpiar previews
+      if (didCreateEvents(text)) {
+        setPreviewEvents([]); // Limpiar previews
+        setTimeout(async () => {
+          if (calendarRefreshRef.current) {
+            await calendarRefreshRef.current();
+          }
+        }, 500);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error("Error desconocido"));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInput(e.target.value);
+  };
+
+  // Confirmar rutina - envía mensaje al agente para crear los eventos
+  const handleConfirmRoutine = async (messageId: string) => {
+    // Marcar como confirmado
+    setMessages(prev => prev.map(m =>
+      m.id === messageId ? { ...m, confirmed: true } : m
+    ));
+
+    // Enviar confirmación al agente
+    const confirmMessage: Message = {
+      id: Date.now().toString(),
+      role: "user",
+      content: "Sí, confirmo. Crea los eventos en mi calendario.",
+    };
+
+    setMessages((prev) => [...prev, confirmMessage]);
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: [...messages, confirmMessage].map((m) => ({
+            role: m.role,
+            content: m.content,
+          })),
+        }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          const text = await response.text();
+          throw new Error(text || "Servicio ocupado. Intenta de nuevo en unos segundos.");
+        }
         throw new Error("Error en la respuesta del servidor");
       }
 
@@ -77,6 +283,17 @@ export default function HomePage() {
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
+
+      // Limpiar previews y actualizar el calendario
+      setPreviewEvents([]); // Siempre limpiar al confirmar
+
+      if (didCreateEvents(text)) {
+        setTimeout(async () => {
+          if (calendarRefreshRef.current) {
+            await calendarRefreshRef.current();
+          }
+        }, 500);
+      }
     } catch (err) {
       setError(err instanceof Error ? err : new Error("Error desconocido"));
     } finally {
@@ -84,8 +301,12 @@ export default function HomePage() {
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setInput(e.target.value);
+  // Cancelar rutina
+  const handleRejectRoutine = (messageId: string) => {
+    setMessages(prev => prev.map(m =>
+      m.id === messageId ? { ...m, isRoutineProposal: false } : m
+    ));
+    setPreviewEvents([]); // Limpiar previews al cancelar
   };
 
   return (
@@ -169,6 +390,10 @@ export default function HomePage() {
               <CalendarWithAuth
                 timezone="America/Lima"
                 onAccessTokenReady={(token) => console.log("Token listo para API")}
+                onRefreshReady={(refreshFn) => {
+                  calendarRefreshRef.current = refreshFn;
+                }}
+                previewEvents={previewEvents}
               />
             </div>
           </div>
@@ -202,27 +427,34 @@ export default function HomePage() {
               {messages.length === 0 && (
                 <div className="text-center py-8">
                   <p className="text-zinc-500 dark:text-zinc-400 text-sm mb-4">
-                    ¿En qué puedo ayudarte?
+                    ¿Qué rutina quieres crear?
                   </p>
                   <div className="space-y-2">
                     <SuggestionButton
-                      text="📆 ¿Qué eventos tengo hoy?"
-                      onClick={() => {
-                        const event = { target: { value: "¿Qué eventos tengo programados para hoy?" } } as React.ChangeEvent<HTMLInputElement>;
-                        handleInputChange(event);
-                      }}
-                    />
-                    <SuggestionButton
                       text="🌅 Crear rutina matutina"
                       onClick={() => {
-                        const event = { target: { value: "Ayúdame a crear una rutina matutina saludable" } } as React.ChangeEvent<HTMLInputElement>;
+                        const event = { target: { value: "Quiero crear una rutina matutina para empezar el día con energía" } } as React.ChangeEvent<HTMLInputElement>;
                         handleInputChange(event);
                       }}
                     />
                     <SuggestionButton
-                      text="📊 Analizar mi semana"
+                      text="🏋️ Rutina de ejercicio"
                       onClick={() => {
-                        const event = { target: { value: "¿Cuándo tengo tiempo libre esta semana?" } } as React.ChangeEvent<HTMLInputElement>;
+                        const event = { target: { value: "Ayúdame a crear una rutina de ejercicio 3 veces por semana" } } as React.ChangeEvent<HTMLInputElement>;
+                        handleInputChange(event);
+                      }}
+                    />
+                    <SuggestionButton
+                      text="📚 Tiempo de estudio"
+                      onClick={() => {
+                        const event = { target: { value: "Necesito una rutina para estudiar inglés por las tardes" } } as React.ChangeEvent<HTMLInputElement>;
+                        handleInputChange(event);
+                      }}
+                    />
+                    <SuggestionButton
+                      text="🧘 Rutina de meditación"
+                      onClick={() => {
+                        const event = { target: { value: "Quiero meditar todos los días en las mañanas" } } as React.ChangeEvent<HTMLInputElement>;
                         handleInputChange(event);
                       }}
                     />
@@ -231,18 +463,47 @@ export default function HomePage() {
               )}
 
               {messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
-                >
+                <div key={message.id} className="space-y-2">
                   <div
-                    className={`max-w-[85%] rounded-lg px-3 py-2 ${message.role === "user"
-                      ? "bg-blue-500 text-white"
-                      : "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white"
-                      }`}
+                    className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
                   >
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                    <div
+                      className={`max-w-[85%] rounded-lg px-3 py-2 ${message.role === "user"
+                        ? "bg-blue-500 text-white"
+                        : "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white"
+                        }`}
+                    >
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                    </div>
                   </div>
+                  {/* Botones de confirmación para propuestas de rutina */}
+                  {message.role === "assistant" && message.isRoutineProposal && !message.confirmed && (
+                    <div className="flex justify-start gap-2 ml-1">
+                      <Button
+                        size="sm"
+                        color="success"
+                        variant="flat"
+                        onPress={() => handleConfirmRoutine(message.id)}
+                        className="text-xs"
+                      >
+                        ✓ Confirmar
+                      </Button>
+                      <Button
+                        size="sm"
+                        color="danger"
+                        variant="flat"
+                        onPress={() => handleRejectRoutine(message.id)}
+                        className="text-xs"
+                      >
+                        ✗ Cancelar
+                      </Button>
+                    </div>
+                  )}
+                  {message.confirmed && (
+                    <div className="flex justify-start ml-1">
+                      <span className="text-xs text-green-600 dark:text-green-400">✓ Confirmado</span>
+                    </div>
+                  )}
                 </div>
               ))}
 

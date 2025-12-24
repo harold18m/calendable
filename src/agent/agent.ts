@@ -1,6 +1,17 @@
 import { Agent, BedrockModel } from "@strands-agents/sdk";
 import { calendarTools } from "./calendar-tools";
 
+// Modelos disponibles - cambia aquí si tienes throttling
+const AVAILABLE_MODELS = {
+    "claude-sonnet-4": "us.anthropic.claude-sonnet-4-20250514-v1:0",
+    "claude-3.5-sonnet": "anthropic.claude-3-5-sonnet-20241022-v2:0",
+    "claude-3-haiku": "anthropic.claude-3-haiku-20240307-v1:0", // Más rápido y barato
+    "claude-3-sonnet": "anthropic.claude-3-sonnet-20240229-v1:0",
+} as const;
+
+// Modelo actual - cambia esto si tienes problemas de throttling
+const CURRENT_MODEL = process.env.BEDROCK_MODEL || "claude-3-haiku";
+
 // System prompt for the routine management agent
 const systemPrompt = `Eres un agente de gestión de rutinas personales conectado a Google Calendar.
 
@@ -59,8 +70,11 @@ TONO:
 IMPORTANTE: El access_token para las herramientas de calendario te será proporcionado en el contexto. Úsalo en cada llamada a herramientas de calendario.`;
 
 // Create the Bedrock model
+const modelId = AVAILABLE_MODELS[CURRENT_MODEL as keyof typeof AVAILABLE_MODELS] || AVAILABLE_MODELS["claude-sonnet-4"];
+console.log(`🤖 Usando modelo: ${CURRENT_MODEL} (${modelId})`);
+
 const model = new BedrockModel({
-    modelId: "us.anthropic.claude-sonnet-4-20250514-v1:0",
+    modelId,
     temperature: 0.3,
 });
 

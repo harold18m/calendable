@@ -23,11 +23,14 @@ interface CalendarEvent {
     end: { dateTime?: string; date?: string };
     description?: string;
     location?: string;
+    isPreview?: boolean; // Para eventos de previsualización
 }
 
 interface CalendarWithAuthProps {
     onEventsLoaded?: (events: CalendarEvent[]) => void;
     onAccessTokenReady?: (token: string) => void;
+    onRefreshReady?: (refreshFn: () => Promise<void>) => void;
+    previewEvents?: CalendarEvent[]; // Eventos de previsualización
     timezone?: string;
 }
 
@@ -68,21 +71,11 @@ function isSameDay(d1: Date, d2: Date): boolean {
         d1.getDate() === d2.getDate();
 }
 
-function getEventColor(index: number): string {
-    const colors = [
-        "bg-blue-500",
-        "bg-green-500",
-        "bg-purple-500",
-        "bg-orange-500",
-        "bg-pink-500",
-        "bg-teal-500",
-    ];
-    return colors[index % colors.length];
-}
-
 export function CalendarWithAuth({
     onEventsLoaded,
     onAccessTokenReady,
+    onRefreshReady,
+    previewEvents = [],
     timezone = "America/Lima",
 }: CalendarWithAuthProps) {
     const { data: session, status } = useSession();
@@ -162,13 +155,25 @@ export function CalendarWithAuth({
         }
     }, [session?.accessToken, loadEvents]);
 
-    // Get events for a specific date
+    // Exponer función de refresh para actualizaciones externas
+    useEffect(() => {
+        if (session?.accessToken && onRefreshReady) {
+            onRefreshReady(loadEvents);
+        }
+    }, [session?.accessToken, onRefreshReady, loadEvents]);
+
+    // Get events for a specific date (including preview events)
     const getEventsForDate = useCallback((date: Date) => {
-        return events.filter(event => {
+        const realEvents = events.filter(event => {
             const eventStart = new Date(event.start.dateTime || event.start.date || "");
             return isSameDay(eventStart, date);
         });
-    }, [events]);
+        const previews = previewEvents.filter(event => {
+            const eventStart = new Date(event.start.dateTime || event.start.date || "");
+            return isSameDay(eventStart, date);
+        }).map(e => ({ ...e, isPreview: true }));
+        return [...realEvents, ...previews];
+    }, [events, previewEvents]);
 
     // Navigation
     const navigate = (direction: number) => {
@@ -331,6 +336,20 @@ export function CalendarWithAuth({
 // Hours for the time grid (6 AM to 10 PM)
 const HOURS = Array.from({ length: 17 }, (_, i) => i + 6);
 
+// Helper to get event color (solid for real, with opacity for preview)
+function getEventColorClass(index: number, isPreview: boolean = false): string {
+    const colors = [
+        { solid: "bg-blue-500", preview: "bg-blue-400/50 border-2 border-dashed border-blue-500" },
+        { solid: "bg-green-500", preview: "bg-green-400/50 border-2 border-dashed border-green-500" },
+        { solid: "bg-purple-500", preview: "bg-purple-400/50 border-2 border-dashed border-purple-500" },
+        { solid: "bg-orange-500", preview: "bg-orange-400/50 border-2 border-dashed border-orange-500" },
+        { solid: "bg-pink-500", preview: "bg-pink-400/50 border-2 border-dashed border-pink-500" },
+        { solid: "bg-teal-500", preview: "bg-teal-400/50 border-2 border-dashed border-teal-500" },
+    ];
+    const color = colors[index % colors.length];
+    return isPreview ? color.preview : color.solid;
+}
+
 // Helper to get event position and height based on time
 function getEventStyle(event: CalendarEvent, hourHeight: number = 48) {
     const start = new Date(event.start.dateTime || event.start.date || "");
@@ -417,13 +436,17 @@ function DayView({
                             const style = getEventStyle(event, hourHeight);
                             const startDate = new Date(event.start.dateTime!);
                             const endDate = new Date(event.end.dateTime || event.end.date || "");
+                            const isPreview = event.isPreview || false;
 
                             return (
                                 <Tooltip
                                     key={event.id}
                                     content={
                                         <div className="p-1">
-                                            <p className="font-medium text-xs">{event.summary}</p>
+                                            <p className="font-medium text-xs">
+                                                {isPreview && <span className="text-yellow-500">[Preview] </span>}
+                                                {event.summary}
+                                            </p>
                                             <p className="text-[10px] text-default-400">
                                                 {startDate.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })} -
                                                 {endDate.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}
@@ -432,7 +455,7 @@ function DayView({
                                     }
                                 >
                                     <div
-                                        className={`absolute left-1 right-1 ${getEventColor(idx)} text-white text-[10px] px-2 py-1 rounded cursor-pointer hover:opacity-90 overflow-hidden z-10`}
+                                        className={`absolute left-1 right-1 ${getEventColorClass(idx, isPreview)} text-white text-[10px] px-2 py-1 rounded cursor-pointer hover:opacity-90 overflow-hidden z-10 ${isPreview ? 'animate-pulse' : ''}`}
                                         style={style}
                                     >
                                         <div className="font-medium truncate">{event.summary || "Sin título"}</div>
@@ -454,7 +477,7 @@ function DayView({
                         {dayEvents.filter(e => !e.start.dateTime).map((event, idx) => (
                             <div
                                 key={event.id}
-                                className={`${getEventColor(idx)} text-white text-[10px] px-2 py-1 rounded truncate`}
+                                className={`${getEventColorClass(idx, event.isPreview)} text-white text-[10px] px-2 py-1 rounded truncate`}
                             >
                                 {event.summary || "Sin título"}
                             </div>
@@ -553,13 +576,17 @@ function WeekView({
                     return dayEvents.map((event, idx) => {
                         const style = getEventStyle(event, hourHeight);
                         const startDate = new Date(event.start.dateTime!);
+                        const isPreview = event.isPreview || false;
 
                         return (
                             <Tooltip
                                 key={event.id}
                                 content={
                                     <div className="p-1">
-                                        <p className="font-medium text-xs">{event.summary}</p>
+                                        <p className="font-medium text-xs">
+                                            {isPreview && <span className="text-yellow-500">[Preview] </span>}
+                                            {event.summary}
+                                        </p>
                                         <p className="text-[10px] text-default-400">
                                             {startDate.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}
                                         </p>
@@ -567,7 +594,7 @@ function WeekView({
                                 }
                             >
                                 <div
-                                    className={`absolute ${getEventColor(idx)} text-white text-[9px] px-1 py-0.5 rounded cursor-pointer hover:opacity-90 overflow-hidden z-10`}
+                                    className={`absolute ${getEventColorClass(idx, isPreview)} text-white text-[9px] px-1 py-0.5 rounded cursor-pointer hover:opacity-90 overflow-hidden z-10 ${isPreview ? 'animate-pulse' : ''}`}
                                     style={{
                                         ...style,
                                         left: `calc(56px + ${dayIndex} * ((100% - 56px) / 7) + 2px)`,
@@ -632,10 +659,10 @@ function MonthView({
                                 {dayEvents.slice(0, 2).map((event, idx) => (
                                     <Tooltip
                                         key={event.id}
-                                        content={event.summary}
+                                        content={event.isPreview ? `[Preview] ${event.summary}` : event.summary}
                                     >
                                         <div
-                                            className={`${getEventColor(idx)} text-white text-[8px] px-0.5 rounded truncate cursor-pointer`}
+                                            className={`${getEventColorClass(idx, event.isPreview)} text-white text-[8px] px-0.5 rounded truncate cursor-pointer ${event.isPreview ? 'animate-pulse' : ''}`}
                                         >
                                             {event.summary || "Sin título"}
                                         </div>
