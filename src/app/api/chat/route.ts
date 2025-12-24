@@ -1,4 +1,4 @@
-import { routineAgent } from "@/lib/agent";
+import { routineAgent } from "@/agent/agent";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 

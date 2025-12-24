@@ -1,6 +1,6 @@
 "use client";
 
-import { useSession } from "next-auth/react";
+import { useSession, signIn } from "next-auth/react";
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { GoogleAuthButton } from "./google-auth-button";
 import {
@@ -89,7 +89,7 @@ export function CalendarWithAuth({
     const [events, setEvents] = useState<CalendarEvent[]>([]);
     const [isLoadingEvents, setIsLoadingEvents] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [viewMode, setViewMode] = useState<"WEEK" | "MONTH" | "AGENDA">("WEEK");
+    const [viewMode, setViewMode] = useState<"WEEK" | "MONTH" | "DAY">("WEEK");
     const [currentDate, setCurrentDate] = useState(new Date());
 
     useEffect(() => {
@@ -97,6 +97,14 @@ export function CalendarWithAuth({
             onAccessTokenReady?.(session.accessToken);
         }
     }, [session?.accessToken, onAccessTokenReady]);
+
+    // Si hay error de refresh token, forzar re-login
+    useEffect(() => {
+        if (session?.error === "RefreshAccessTokenError") {
+            console.log("Token refresh failed, redirecting to sign in...");
+            signIn("google"); // Forzar re-autenticación
+        }
+    }, [session?.error]);
 
     const loadEvents = useCallback(async () => {
         if (!session?.accessToken) return;
@@ -126,6 +134,13 @@ export function CalendarWithAuth({
                     },
                 }
             );
+
+            if (response.status === 401) {
+                // Token inválido, forzar re-autenticación
+                console.log("401 Unauthorized, forcing re-auth...");
+                signIn("google");
+                return;
+            }
 
             if (!response.ok) {
                 throw new Error("Error al cargar eventos");
@@ -160,6 +175,8 @@ export function CalendarWithAuth({
         const newDate = new Date(currentDate);
         if (viewMode === "WEEK") {
             newDate.setDate(newDate.getDate() + (direction * 7));
+        } else if (viewMode === "DAY") {
+            newDate.setDate(newDate.getDate() + direction);
         } else {
             newDate.setMonth(newDate.getMonth() + direction);
         }
@@ -197,52 +214,12 @@ export function CalendarWithAuth({
     }
 
     return (
-        <div className="space-y-3">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <Avatar
-                        src={session.user?.image || undefined}
-                        name={session.user?.name || "User"}
-                        size="sm"
-                        className="w-7 h-7"
-                    />
-                    <div>
-                        <p className="text-xs font-medium">
-                            {session.user?.name || "Mi Calendario"}
-                        </p>
-                    </div>
-                </div>
-                <div className="flex items-center gap-1">
-                    <Button
-                        isIconOnly
-                        size="sm"
-                        variant="light"
-                        onPress={loadEvents}
-                        isLoading={isLoadingEvents}
-                        className="w-7 h-7 min-w-0"
-                    >
-                        {!isLoadingEvents && (
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                            </svg>
-                        )}
-                    </Button>
-                    <Link
-                        href="https://calendar.google.com"
-                        isExternal
-                        className="text-xs"
-                    >
-                        Abrir
-                    </Link>
-                </div>
-            </div>
-
+        <div className="flex flex-col h-full space-y-3">
             {/* Tabs + Navigation */}
             <div className="flex items-center justify-between gap-2">
                 <Tabs
                     selectedKey={viewMode}
-                    onSelectionChange={(key) => setViewMode(key as "WEEK" | "MONTH" | "AGENDA")}
+                    onSelectionChange={(key) => setViewMode(key as "WEEK" | "MONTH" | "DAY")}
                     size="sm"
                     variant="light"
                     classNames={{
@@ -251,52 +228,51 @@ export function CalendarWithAuth({
                         cursor: "bg-background shadow-sm",
                     }}
                 >
+                    <Tab key="DAY" title="Día" />
                     <Tab key="WEEK" title="Semana" />
                     <Tab key="MONTH" title="Mes" />
-                    <Tab key="AGENDA" title="Agenda" />
                 </Tabs>
 
-                {viewMode !== "AGENDA" && (
-                    <div className="flex items-center gap-1">
-                        <Button
-                            isIconOnly
-                            size="sm"
-                            variant="light"
-                            onPress={() => navigate(-1)}
-                            className="w-6 h-6 min-w-0"
-                        >
-                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                            </svg>
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant="flat"
-                            onPress={goToToday}
-                            className="h-6 px-2 text-xs min-w-0"
-                        >
-                            Hoy
-                        </Button>
-                        <Button
-                            isIconOnly
-                            size="sm"
-                            variant="light"
-                            onPress={() => navigate(1)}
-                            className="w-6 h-6 min-w-0"
-                        >
-                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                            </svg>
-                        </Button>
-                    </div>
-                )}
+                <div className="flex items-center gap-1">
+                    <Button
+                        isIconOnly
+                        size="sm"
+                        variant="light"
+                        onPress={() => navigate(-1)}
+                        className="w-6 h-6 min-w-0"
+                    >
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant="flat"
+                        onPress={goToToday}
+                        className="h-6 px-2 text-xs min-w-0"
+                    >
+                        Hoy
+                    </Button>
+                    <Button
+                        isIconOnly
+                        size="sm"
+                        variant="light"
+                        onPress={() => navigate(1)}
+                        className="w-6 h-6 min-w-0"
+                    >
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                    </Button>
+                </div>
             </div>
 
             {/* Current period display */}
-            {viewMode !== "AGENDA" && (
-                <div className="text-center">
-                    <p className="text-sm font-medium">
-                        {viewMode === "WEEK"
+            <div className="text-center">
+                <p className="text-sm font-medium">
+                    {viewMode === "DAY"
+                        ? `${DAYS[currentDate.getDay()]} ${currentDate.getDate()} ${MONTHS[currentDate.getMonth()]} ${currentDate.getFullYear()}`
+                        : viewMode === "WEEK"
                             ? (() => {
                                 const weekDates = getWeekDates(currentDate);
                                 const start = weekDates[0];
@@ -307,10 +283,9 @@ export function CalendarWithAuth({
                                 return `${start.getDate()} ${MONTHS[start.getMonth()].slice(0, 3)} - ${end.getDate()} ${MONTHS[end.getMonth()].slice(0, 3)} ${end.getFullYear()}`;
                             })()
                             : `${MONTHS[currentDate.getMonth()]} ${currentDate.getFullYear()}`
-                        }
-                    </p>
-                </div>
-            )}
+                    }
+                </p>
+            </div>
 
             {/* Error */}
             {error && (
@@ -327,28 +302,171 @@ export function CalendarWithAuth({
             )}
 
             {/* Calendar Views */}
-            {!isLoadingEvents && viewMode === "WEEK" && (
-                <WeekView
-                    currentDate={currentDate}
-                    getEventsForDate={getEventsForDate}
-                />
-            )}
+            <div className="flex-1 min-h-0">
+                {!isLoadingEvents && viewMode === "DAY" && (
+                    <DayView
+                        currentDate={currentDate}
+                        getEventsForDate={getEventsForDate}
+                    />
+                )}
 
-            {!isLoadingEvents && viewMode === "MONTH" && (
-                <MonthView
-                    currentDate={currentDate}
-                    getEventsForDate={getEventsForDate}
-                />
-            )}
+                {!isLoadingEvents && viewMode === "WEEK" && (
+                    <WeekView
+                        currentDate={currentDate}
+                        getEventsForDate={getEventsForDate}
+                    />
+                )}
 
-            {!isLoadingEvents && viewMode === "AGENDA" && (
-                <AgendaView events={events} />
+                {!isLoadingEvents && viewMode === "MONTH" && (
+                    <MonthView
+                        currentDate={currentDate}
+                        getEventsForDate={getEventsForDate}
+                    />
+                )}
+            </div>
+        </div>
+    );
+}
+
+// Hours for the time grid (6 AM to 10 PM)
+const HOURS = Array.from({ length: 17 }, (_, i) => i + 6);
+
+// Helper to get event position and height based on time
+function getEventStyle(event: CalendarEvent, hourHeight: number = 48) {
+    const start = new Date(event.start.dateTime || event.start.date || "");
+    const end = new Date(event.end.dateTime || event.end.date || "");
+
+    const startHour = start.getHours() + start.getMinutes() / 60;
+    const endHour = end.getHours() + end.getMinutes() / 60;
+
+    const top = (startHour - 6) * hourHeight;
+    const height = Math.max((endHour - startHour) * hourHeight, 20);
+
+    return { top: `${top}px`, height: `${height}px` };
+}
+
+// Day View Component (Google Calendar style with hour grid)
+function DayView({
+    currentDate,
+    getEventsForDate
+}: {
+    currentDate: Date;
+    getEventsForDate: (date: Date) => CalendarEvent[];
+}) {
+    const today = new Date();
+    const isToday = isSameDay(currentDate, today);
+    const dayEvents = getEventsForDate(currentDate);
+    const hourHeight = 48;
+
+    // Current time indicator position
+    const now = new Date();
+    const currentTimeTop = isToday
+        ? ((now.getHours() + now.getMinutes() / 60) - 6) * hourHeight
+        : -100;
+
+    return (
+        <div className="border border-divider rounded-lg overflow-hidden h-full flex flex-col">
+            {/* Day header */}
+            <div className="bg-default-50 border-b border-divider py-2 px-3 shrink-0">
+                <div className={`text-center ${isToday ? 'text-primary' : ''}`}>
+                    <div className="text-xs text-default-400 uppercase">
+                        {DAYS[currentDate.getDay()]}
+                    </div>
+                    <div className={`text-xl font-semibold ${isToday ? 'bg-primary text-white rounded-full w-8 h-8 flex items-center justify-center mx-auto' : ''}`}>
+                        {currentDate.getDate()}
+                    </div>
+                </div>
+            </div>
+
+            {/* Time grid */}
+            <div className="relative overflow-y-auto flex-1 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                {/* Current time indicator */}
+                {isToday && currentTimeTop >= 0 && currentTimeTop <= HOURS.length * hourHeight && (
+                    <div
+                        className="absolute left-0 right-0 z-20 flex items-center pointer-events-none"
+                        style={{ top: `${currentTimeTop}px` }}
+                    >
+                        <div className="w-2 h-2 bg-red-500 rounded-full -ml-1" />
+                        <div className="flex-1 h-0.5 bg-red-500" />
+                    </div>
+                )}
+
+                {/* Hour rows */}
+                {HOURS.map((hour) => (
+                    <div
+                        key={hour}
+                        className="flex border-b border-divider"
+                        style={{ height: `${hourHeight}px` }}
+                    >
+                        {/* Time label */}
+                        <div className="w-14 shrink-0 pr-2 text-right">
+                            <span className="text-[10px] text-default-400 -mt-2 block">
+                                {hour.toString().padStart(2, '0')}:00
+                            </span>
+                        </div>
+                        {/* Grid cell */}
+                        <div className="flex-1 border-l border-divider relative" />
+                    </div>
+                ))}
+
+                {/* Events overlay */}
+                <div className="absolute top-0 left-14 right-0 bottom-0">
+                    {dayEvents
+                        .filter(e => e.start.dateTime) // Only timed events
+                        .map((event, idx) => {
+                            const style = getEventStyle(event, hourHeight);
+                            const startDate = new Date(event.start.dateTime!);
+                            const endDate = new Date(event.end.dateTime || event.end.date || "");
+
+                            return (
+                                <Tooltip
+                                    key={event.id}
+                                    content={
+                                        <div className="p-1">
+                                            <p className="font-medium text-xs">{event.summary}</p>
+                                            <p className="text-[10px] text-default-400">
+                                                {startDate.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })} -
+                                                {endDate.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}
+                                            </p>
+                                        </div>
+                                    }
+                                >
+                                    <div
+                                        className={`absolute left-1 right-1 ${getEventColor(idx)} text-white text-[10px] px-2 py-1 rounded cursor-pointer hover:opacity-90 overflow-hidden z-10`}
+                                        style={style}
+                                    >
+                                        <div className="font-medium truncate">{event.summary || "Sin título"}</div>
+                                        <div className="text-white/80 text-[9px]">
+                                            {startDate.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}
+                                        </div>
+                                    </div>
+                                </Tooltip>
+                            );
+                        })}
+                </div>
+            </div>
+
+            {/* All-day events */}
+            {dayEvents.filter(e => !e.start.dateTime).length > 0 && (
+                <div className="border-t border-divider p-2 bg-default-50">
+                    <div className="text-[10px] text-default-400 mb-1">Todo el día</div>
+                    <div className="space-y-1">
+                        {dayEvents.filter(e => !e.start.dateTime).map((event, idx) => (
+                            <div
+                                key={event.id}
+                                className={`${getEventColor(idx)} text-white text-[10px] px-2 py-1 rounded truncate`}
+                            >
+                                {event.summary || "Sin título"}
+                            </div>
+                        ))}
+                    </div>
+                </div>
             )}
         </div>
     );
 }
 
-// Week View Component
+// Week View Component (Google Calendar style with hour grid)
 function WeekView({
     currentDate,
     getEventsForDate
@@ -358,19 +476,26 @@ function WeekView({
 }) {
     const weekDates = getWeekDates(currentDate);
     const today = new Date();
+    const hourHeight = 40;
+
+    // Current time indicator
+    const now = new Date();
+    const currentTimeTop = ((now.getHours() + now.getMinutes() / 60) - 6) * hourHeight;
+    const todayIndex = weekDates.findIndex(d => isSameDay(d, today));
 
     return (
-        <div className="border border-divider rounded-lg overflow-hidden">
+        <div className="border border-divider rounded-lg overflow-hidden h-full flex flex-col">
             {/* Days header */}
-            <div className="grid grid-cols-7 bg-default-50">
+            <div className="grid grid-cols-[56px_repeat(7,1fr)] bg-default-50 border-b border-divider shrink-0">
+                <div className="border-r border-divider" />
                 {weekDates.map((date, i) => {
                     const isToday = isSameDay(date, today);
                     return (
                         <div
                             key={i}
-                            className={`text-center py-2 border-b border-divider ${i > 0 ? 'border-l' : ''}`}
+                            className={`text-center py-2 ${i > 0 ? 'border-l border-divider' : ''}`}
                         >
-                            <div className="text-[10px] text-default-400 uppercase">{DAYS[i]}</div>
+                            <div className="text-[10px] text-default-400 uppercase">{DAYS[date.getDay()]}</div>
                             <div className={`text-sm font-medium ${isToday ? 'bg-primary text-white rounded-full w-6 h-6 flex items-center justify-center mx-auto' : ''}`}>
                                 {date.getDate()}
                             </div>
@@ -378,55 +503,85 @@ function WeekView({
                     );
                 })}
             </div>
-            {/* Events grid */}
-            <div className="grid grid-cols-7 min-h-[200px]">
-                {weekDates.map((date, i) => {
-                    const dayEvents = getEventsForDate(date);
-                    const isToday = isSameDay(date, today);
-                    return (
-                        <div
-                            key={i}
-                            className={`p-1 ${i > 0 ? 'border-l border-divider' : ''} ${isToday ? 'bg-primary/5' : ''}`}
-                        >
-                            <div className="space-y-0.5">
-                                {dayEvents.slice(0, 4).map((event, idx) => {
-                                    const startDate = new Date(event.start.dateTime || event.start.date || "");
-                                    const isAllDay = !event.start.dateTime;
-                                    return (
-                                        <Tooltip
-                                            key={event.id}
-                                            content={
-                                                <div className="p-1">
-                                                    <p className="font-medium text-xs">{event.summary}</p>
-                                                    {!isAllDay && (
-                                                        <p className="text-[10px] text-default-400">
-                                                            {startDate.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            }
-                                        >
-                                            <div
-                                                className={`${getEventColor(idx)} text-white text-[10px] px-1 py-0.5 rounded truncate cursor-pointer hover:opacity-80`}
-                                            >
-                                                {!isAllDay && (
-                                                    <span className="font-medium">
-                                                        {startDate.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}
-                                                    </span>
-                                                )}{" "}
-                                                {event.summary || "Sin título"}
-                                            </div>
-                                        </Tooltip>
-                                    );
-                                })}
-                                {dayEvents.length > 4 && (
-                                    <div className="text-[10px] text-default-400 px-1">
-                                        +{dayEvents.length - 4} más
-                                    </div>
-                                )}
-                            </div>
+
+            {/* Time grid */}
+            <div className="relative overflow-y-auto flex-1 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                {/* Current time indicator */}
+                {todayIndex >= 0 && currentTimeTop >= 0 && currentTimeTop <= HOURS.length * hourHeight && (
+                    <div
+                        className="absolute z-20 flex items-center pointer-events-none"
+                        style={{
+                            top: `${currentTimeTop}px`,
+                            left: `calc(56px + ${todayIndex} * ((100% - 56px) / 7))`,
+                            width: `calc((100% - 56px) / 7)`
+                        }}
+                    >
+                        <div className="w-2 h-2 bg-red-500 rounded-full -ml-1" />
+                        <div className="flex-1 h-0.5 bg-red-500" />
+                    </div>
+                )}
+
+                {/* Hour rows */}
+                {HOURS.map((hour) => (
+                    <div
+                        key={hour}
+                        className="grid grid-cols-[56px_repeat(7,1fr)] border-b border-divider"
+                        style={{ height: `${hourHeight}px` }}
+                    >
+                        {/* Time label */}
+                        <div className="pr-2 text-right border-r border-divider">
+                            <span className="text-[10px] text-default-400 -mt-2 block">
+                                {hour.toString().padStart(2, '0')}:00
+                            </span>
                         </div>
-                    );
+                        {/* Day columns */}
+                        {weekDates.map((date, i) => {
+                            const isToday = isSameDay(date, today);
+                            return (
+                                <div
+                                    key={i}
+                                    className={`${i > 0 ? 'border-l border-divider' : ''} ${isToday ? 'bg-primary/5' : ''}`}
+                                />
+                            );
+                        })}
+                    </div>
+                ))}
+
+                {/* Events overlay */}
+                {weekDates.map((date, dayIndex) => {
+                    const dayEvents = getEventsForDate(date).filter(e => e.start.dateTime);
+                    return dayEvents.map((event, idx) => {
+                        const style = getEventStyle(event, hourHeight);
+                        const startDate = new Date(event.start.dateTime!);
+
+                        return (
+                            <Tooltip
+                                key={event.id}
+                                content={
+                                    <div className="p-1">
+                                        <p className="font-medium text-xs">{event.summary}</p>
+                                        <p className="text-[10px] text-default-400">
+                                            {startDate.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}
+                                        </p>
+                                    </div>
+                                }
+                            >
+                                <div
+                                    className={`absolute ${getEventColor(idx)} text-white text-[9px] px-1 py-0.5 rounded cursor-pointer hover:opacity-90 overflow-hidden z-10`}
+                                    style={{
+                                        ...style,
+                                        left: `calc(56px + ${dayIndex} * ((100% - 56px) / 7) + 2px)`,
+                                        width: `calc((100% - 56px) / 7 - 4px)`
+                                    }}
+                                >
+                                    <div className="font-medium truncate">{event.summary || "Sin título"}</div>
+                                    <div className="text-white/80 text-[8px]">
+                                        {startDate.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}
+                                    </div>
+                                </div>
+                            </Tooltip>
+                        );
+                    });
                 })}
             </div>
         </div>
@@ -446,9 +601,9 @@ function MonthView({
     const currentMonth = currentDate.getMonth();
 
     return (
-        <div className="border border-divider rounded-lg overflow-hidden">
+        <div className="border border-divider rounded-lg overflow-hidden h-full flex flex-col">
             {/* Days header */}
-            <div className="grid grid-cols-7 bg-default-50">
+            <div className="grid grid-cols-7 bg-default-50 shrink-0">
                 {DAYS.map((day, i) => (
                     <div
                         key={i}
@@ -459,7 +614,7 @@ function MonthView({
                 ))}
             </div>
             {/* Calendar grid */}
-            <div className="grid grid-cols-7">
+            <div className="grid grid-cols-7 flex-1 auto-rows-fr">
                 {monthDates.map((date, i) => {
                     const dayEvents = getEventsForDate(date);
                     const isToday = isSameDay(date, today);
@@ -496,62 +651,6 @@ function MonthView({
                     );
                 })}
             </div>
-        </div>
-    );
-}
-
-// Agenda View Component
-function AgendaView({ events }: { events: CalendarEvent[] }) {
-    if (events.length === 0) {
-        return (
-            <div className="py-8 text-center text-default-500">
-                <p className="text-sm">No hay eventos próximos</p>
-            </div>
-        );
-    }
-
-    return (
-        <div className="max-h-[300px] overflow-y-auto space-y-1.5">
-            {events.map((event, idx) => {
-                const startDate = new Date(event.start.dateTime || event.start.date || "");
-                const endDate = new Date(event.end.dateTime || event.end.date || "");
-                const isAllDay = !event.start.dateTime;
-
-                return (
-                    <div
-                        key={event.id}
-                        className="flex items-center gap-2 p-2 bg-default-50 rounded-lg hover:bg-default-100 transition-colors"
-                    >
-                        <div className={`w-1 h-8 rounded-full ${getEventColor(idx)}`} />
-                        <div className="shrink-0 w-10 text-center">
-                            <div className="text-[10px] text-default-400">
-                                {startDate.toLocaleDateString("es", { weekday: "short" })}
-                            </div>
-                            <div className="text-sm font-semibold">
-                                {startDate.getDate()}
-                            </div>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium truncate">
-                                {event.summary || "Sin título"}
-                            </p>
-                            <p className="text-[10px] text-default-400">
-                                {isAllDay ? (
-                                    "Todo el día"
-                                ) : (
-                                    `${startDate.toLocaleTimeString("es", {
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                    })} - ${endDate.toLocaleTimeString("es", {
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                    })}`
-                                )}
-                            </p>
-                        </div>
-                    </div>
-                );
-            })}
         </div>
     );
 }

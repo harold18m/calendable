@@ -149,32 +149,16 @@ export default function HomePage() {
             </div>
 
             {/* Calendar Content - Notion style */}
-            <div className="flex-1 overflow-y-auto p-6 bg-zinc-50 dark:bg-zinc-900/50">
-              <div className="max-w-5xl mx-auto">
-                {/* Page Title */}
-                <div className="mb-6">
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="text-4xl">🗓️</span>
-                    <h2 className="text-3xl font-bold text-zinc-900 dark:text-white">Google Calendar</h2>
-                  </div>
-                  <p className="text-lg text-zinc-500 ml-14">Tus eventos y rutinas sincronizados</p>
-                </div>
-
-                {/* Calendar Card - Clean Notion style */}
-                <div className="bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden">
-                  <div className="p-6">
-                    <CalendarWithAuth
-                      timezone="America/Lima"
-                      onAccessTokenReady={(token) => console.log("Token listo para API")}
-                    />
-                  </div>
-                </div>
-              </div>
+            <div className="flex-1 flex flex-col overflow-hidden p-6 bg-zinc-50 dark:bg-zinc-900/50">
+              <CalendarWithAuth
+                timezone="America/Lima"
+                onAccessTokenReady={(token) => console.log("Token listo para API")}
+              />
             </div>
           </div>
 
           {/* Sidebar - Chat (Right) - Notion style */}
-          <div className="w-[420px] border-l border-zinc-200 dark:border-zinc-800 flex flex-col bg-white dark:bg-zinc-900 shrink-0">
+          <div className="w-105 border-l border-zinc-200 dark:border-zinc-800 flex flex-col bg-white dark:bg-zinc-900 shrink-0">
             {/* Chat Header */}
             <div className="p-5 border-b border-zinc-200 dark:border-zinc-800">
               <div className="flex items-center gap-4">
