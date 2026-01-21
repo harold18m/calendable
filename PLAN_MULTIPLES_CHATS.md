@@ -93,7 +93,7 @@ src/
 #### 1.1 Crear utilidades de almacenamiento
 - `lib/chat-storage.ts`: Funciones para guardar/cargar chats en localStorage
 - Funciones: `saveChat()`, `loadChats()`, `deleteChat()`, `updateChat()`
-- Key: `routine-agent-chats-${userId}`
+- Key: `calendable-chats-${userId}`
 
 #### 1.2 Crear hook personalizado
 - `hooks/use-chats.ts`: Hook para gestionar estado de chats
@@ -235,7 +235,7 @@ const handleSubmit = async (e: FormEvent) => {
 
 ```
 ┌─────────────────────────────────────────────────┐
-│ Navbar (Routine Agent + User)                    │
+│ Navbar (Calendable + User)                    │
 ├──────────┬───────────────────────────────────────┤
 │          │ Chat Header (Título + Acciones)      │
 │ Chat     ├───────────────────────────────────────┤
@@ -258,12 +258,12 @@ const handleSubmit = async (e: FormEvent) => {
 ```typescript
 // lib/chat-storage.ts
 export const saveChats = (userId: string, chats: Chat[]) => {
-  const key = `routine-agent-chats-${userId}`;
+  const key = `calendable-chats-${userId}`;
   localStorage.setItem(key, JSON.stringify(chats));
 };
 
 export const loadChats = (userId: string): Chat[] => {
-  const key = `routine-agent-chats-${userId}`;
+  const key = `calendable-chats-${userId}`;
   const data = localStorage.getItem(key);
   return data ? JSON.parse(data) : [];
 };

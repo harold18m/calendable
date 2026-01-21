@@ -51,7 +51,7 @@ function SignInContent() {
                 <CardHeader className="flex flex-col items-center gap-3 pb-0 pt-8">
                     <CalendarIcon />
                     <div className="flex flex-col items-center gap-1">
-                        <h1 className="text-2xl font-bold">Routine Agent</h1>
+                        <h1 className="text-2xl font-bold">Calendable</h1>
                         <p className="text-small text-default-500">
                             Tu asistente personal de rutinas
                         </p>

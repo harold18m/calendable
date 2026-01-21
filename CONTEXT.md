@@ -1,8 +1,8 @@
-# Contexto del Proyecto: Routine Agent
+# Contexto del Proyecto: Calendable
 
 ## Descripción General
 
-**Routine Agent** es una aplicación web construida con Next.js que utiliza inteligencia artificial para ayudar a los usuarios a gestionar rutinas personales mediante la integración con Google Calendar. El agente puede crear, actualizar y gestionar eventos de calendario de forma inteligente, analizando la disponibilidad del usuario y proponiendo rutinas personalizadas.
+**Calendable** es una aplicación web construida con Next.js que utiliza inteligencia artificial para ayudar a los usuarios a gestionar rutinas personales mediante la integración con Google Calendar. El agente puede crear, actualizar y gestionar eventos de calendario de forma inteligente, analizando la disponibilidad del usuario y proponiendo rutinas personalizadas.
 
 ## Arquitectura
 

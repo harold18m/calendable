@@ -203,11 +203,11 @@ Si necesitas que funcione **AHORA** mientras completas la verificación:
 Si necesitas una política de privacidad básica, aquí tienes un template:
 
 ```markdown
-# Política de Privacidad - Routine Agent
+# Política de Privacidad - Calendable
 
 ## Información que Recopilamos
 
-Routine Agent accede a la siguiente información de tu cuenta de Google:
+Calendable accede a la siguiente información de tu cuenta de Google:
 
 - **Perfil básico**: Nombre y email
 - **Calendario**: Eventos y disponibilidad para crear y gestionar rutinas

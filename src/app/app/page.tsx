@@ -369,7 +369,7 @@ export default function AppPage() {
                 </svg>
               </div>
               <h1 className="text-base font-semibold text-zinc-900 dark:text-white">
-                Routine Agent
+                Calendable
               </h1>
               {/* Botón para mostrar/ocultar chat */}
               <Button
@@ -472,8 +472,7 @@ export default function AppPage() {
                             ¡Hola{session?.user?.name ? `, ${session.user.name.split(' ')[0]}` : ''}! 👋
                           </h3>
                           <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                            Soy tu asistente de rutinas. Puedo ayudarte a crear y gestionar rutinas personalizadas en tu Google Calendar. 
-                            Solo dime qué necesitas en lenguaje natural.
+                            ¿Qué te gustaría planificar o hacer? Escribe aquí y te ayudo a organizarlo en tu calendario.
                           </p>
                         </div>
                       </div>
@@ -496,10 +495,10 @@ export default function AppPage() {
                                 </svg>
                               </div>
                               <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-2">
-                                ¿Qué rutina quieres crear?
+                                ¿Qué te gustaría planificar?
                               </h3>
                               <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
-                                Elige una opción o escribe tu propia solicitud
+                                Escribe aquí lo que quieres hacer y te ayudo a organizarlo
                               </p>
                             </div>
                             <div className="space-y-3">
@@ -637,7 +636,7 @@ export default function AppPage() {
                           value={input}
                           onChange={handleInputChange}
                           onKeyDown={handleKeyDown}
-                          placeholder="Ask Routine Agent..."
+                          placeholder="Ask Calendable..."
                           rows={1}
                           className="flex-1 resize-none bg-transparent border-0 outline-none text-sm font-medium placeholder:text-zinc-400 dark:placeholder:text-zinc-500 text-zinc-900 dark:text-white py-3 px-4 min-h-[44px] max-h-[144px] overflow-y-auto"
                           style={{ 

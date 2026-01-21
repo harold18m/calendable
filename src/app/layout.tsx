@@ -5,7 +5,7 @@ import { Providers } from "@/components/providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Routine Agent",
+  title: "Calendable",
   description: "Personal routine management agent",
 };
 
