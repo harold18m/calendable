@@ -1,9 +1,8 @@
 "use client";
 
 import { Button } from "@heroui/react";
-import { signIn } from "next-auth/react";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { useSession } from "next-auth/react";
+import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useRef, FormEvent } from "react";
 import { motion } from "framer-motion";
@@ -40,7 +39,7 @@ function CalendarIcon() {
 }
 
 export default function LandingPage() {
-  const { data: session, status } = useSession();
+  const { isSignedIn, isLoaded } = useUser();
   const router = useRouter();
   const [input, setInput] = useState("");
   const [inputRows, setInputRows] = useState(1);
@@ -51,34 +50,37 @@ export default function LandingPage() {
     if (typeof window !== "undefined") {
       const pendingMessage = localStorage.getItem("calendable-pending-message");
       if (pendingMessage) {
-        setInput(pendingMessage);
-        // Ajustar altura del textarea
+        // Usar setTimeout para evitar setState en el cuerpo del effect
         setTimeout(() => {
-          if (textareaRef.current) {
-            textareaRef.current.style.height = 'auto';
-            const scrollHeight = textareaRef.current.scrollHeight;
-            const lineHeight = 24;
-            const minHeight = 56;
-            const maxHeight = lineHeight * 6;
-            const newHeight = Math.min(Math.max(scrollHeight, minHeight), maxHeight);
-            textareaRef.current.style.height = `${newHeight}px`;
-            
-            const hasMultipleLines = scrollHeight > minHeight || pendingMessage.includes('\n');
-            setInputRows(hasMultipleLines ? 2 : 1);
-          }
-        }, 100);
+          setInput(pendingMessage);
+          // Ajustar altura del textarea
+          setTimeout(() => {
+            if (textareaRef.current) {
+              textareaRef.current.style.height = 'auto';
+              const scrollHeight = textareaRef.current.scrollHeight;
+              const lineHeight = 24;
+              const minHeight = 56;
+              const maxHeight = lineHeight * 6;
+              const newHeight = Math.min(Math.max(scrollHeight, minHeight), maxHeight);
+              textareaRef.current.style.height = `${newHeight}px`;
+              
+              const hasMultipleLines = scrollHeight > minHeight || pendingMessage.includes('\n');
+              setInputRows(hasMultipleLines ? 2 : 1);
+            }
+          }, 100);
+        }, 0);
       }
     }
   }, []);
 
   useEffect(() => {
-    if (status === "authenticated") {
+    if (isLoaded && isSignedIn) {
       router.push("/app");
     }
-  }, [status, router]);
+  }, [isLoaded, isSignedIn, router]);
 
   const handleGetStarted = () => {
-    signIn("google", { callbackUrl: "/app" });
+    router.push("/auth/signin?redirect_url=/app");
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -108,6 +110,11 @@ export default function LandingPage() {
     e.preventDefault();
     if (!input.trim()) return;
     
+    // Guardar el mensaje antes de redirigir
+    if (typeof window !== "undefined") {
+      localStorage.setItem("calendable-pending-message", input.trim());
+    }
+    
     // Redirigir a login si no está autenticado
     handleGetStarted();
   };
@@ -116,13 +123,18 @@ export default function LandingPage() {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       if (input.trim()) {
-        handleSubmit(e as any);
+        const syntheticEvent = {
+          preventDefault: () => {},
+          currentTarget: e.currentTarget.closest('form'),
+          target: e.currentTarget.closest('form'),
+        } as unknown as FormEvent;
+        handleSubmit(syntheticEvent);
       }
     }
   };
 
   // Si está autenticado, mostrar loading mientras redirige
-  if (status === "authenticated") {
+  if (isLoaded && isSignedIn) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white dark:bg-zinc-900">
         <div className="text-center">

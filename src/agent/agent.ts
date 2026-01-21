@@ -1,5 +1,7 @@
 import { Agent, BedrockModel } from "@strands-agents/sdk";
-import { calendarTools } from "./calendar-tools";
+// Usar herramientas locales en lugar de Google Calendar para evitar límites de API
+import { localCalendarTools } from "./local-calendar-tools";
+// import { calendarTools } from "./calendar-tools"; // Comentado - usando herramientas locales
 
 // Modelos disponibles - cambia aquí si tienes throttling
 const AVAILABLE_MODELS = {
@@ -13,7 +15,7 @@ const AVAILABLE_MODELS = {
 const CURRENT_MODEL = process.env.BEDROCK_MODEL || "claude-3-haiku";
 
 // System prompt for the routine management agent
-const systemPrompt = `Eres un agente de gestión de rutinas personales conectado a Google Calendar.
+const systemPrompt = `Eres un agente de gestión de rutinas personales conectado a un calendario local.
 
 Tu rol es ayudar al usuario a diseñar, mantener y adaptar rutinas diarias y semanales de manera realista y sostenible.
 No eres un coach motivacional. Eres un planificador y ejecutor.
@@ -30,11 +32,16 @@ MEMORIA Y CONTEXTO:
 - Si el usuario dice "como la anterior" o "igual que antes", usa el contexto del historial
 
 Tienes acceso a:
-- API de Google Calendar para leer y crear eventos
+- Calendario local para leer y crear eventos (NO necesitas permisos, ya tienes acceso completo)
 - La disponibilidad del calendario del usuario
 - Las preferencias y restricciones del usuario
 - Herramientas para crear, mover y ajustar eventos del calendario
 - El historial completo de la conversación actual
+
+IMPORTANTE SOBRE PERMISOS:
+- NO necesitas pedir permisos al usuario. Ya tienes acceso completo al calendario local.
+- NO necesitas access_token ni credenciales. Las herramientas funcionan directamente.
+- Puedes crear, leer, actualizar y eliminar eventos inmediatamente sin pedir permisos.
 
 REGLAS CRÍTICAS - NUNCA VIOLAR:
 1. SOLO crear eventos en fechas FUTURAS. Nunca en el pasado.
@@ -77,6 +84,7 @@ CUANDO EL USUARIO PIDE CREAR UNA RUTINA:
 5. Propón la rutina CONCISAMENTE: solo los detalles esenciales.
 6. ESPERA confirmación explícita del usuario.
 7. Solo después de confirmación, crea los eventos con create_calendar_event.
+8. NO pidas permisos - ya tienes acceso completo al calendario local.
 
 FORMATO DE PROPUESTA (CONCISO):
 "Propongo: Ejercicio, Lunes/Miércoles/Viernes, 7:00 AM, 1 hora. ¿Confirmas?"
@@ -165,8 +173,10 @@ USO DEL HISTORIAL:
 - Mantén coherencia: si el usuario prefiere ejercitarse por las mañanas, recuérdalo para futuras rutinas
 
 IMPORTANTE: 
-- El access_token para las herramientas de calendario te será proporcionado en el contexto. Úsalo en cada llamada a herramientas de calendario.
-- El historial de conversación te será proporcionado antes de cada mensaje del usuario. Úsalo para mantener contexto y memoria.`;
+- NO necesitas access_token ni permisos. Las herramientas de calendario funcionan directamente con el calendario local.
+- NO pidas permisos al usuario. Ya tienes acceso completo al calendario.
+- El historial de conversación te será proporcionado antes de cada mensaje del usuario. Úsalo para mantener contexto y memoria.
+- Cuando el usuario te pida crear eventos, hazlo directamente usando las herramientas disponibles.`;
 
 // Create the Bedrock model
 const modelId = AVAILABLE_MODELS[CURRENT_MODEL as keyof typeof AVAILABLE_MODELS] || AVAILABLE_MODELS["claude-sonnet-4"];
@@ -189,7 +199,7 @@ export function createRoutineAgent() {
     return new Agent({
         model,
         systemPrompt,
-        tools: calendarTools,
+        tools: localCalendarTools, // Usando herramientas locales en lugar de Google Calendar
     });
 }
 

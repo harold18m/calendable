@@ -1,6 +1,7 @@
 "use client";
 
-import { useSession, signOut } from "next-auth/react";
+import { useUser, useClerk } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 import { AuthGuard } from "@/components/auth-guard";
 import { CalendarWithAuth } from "@/components/calendar-with-auth";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -16,7 +17,7 @@ import {
   Tabs,
   Tab,
 } from "@heroui/react";
-import { useRef, useEffect, useState, FormEvent } from "react";
+import { useRef, useEffect, useState, FormEvent, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   saveChat, 
@@ -179,7 +180,9 @@ const parseRoutineProposal = (content: string): PreviewEvent[] => {
 };
 
 export default function AppPage() {
-  const { data: session } = useSession();
+  const { user, isLoaded } = useUser();
+  const { signOut } = useClerk();
+  const router = useRouter();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -195,12 +198,241 @@ export default function AppPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const chatInitializedRef = useRef(false);
+  const pendingMessageProcessedRef = useRef(false);
+  const [thoughtTime, setThoughtTime] = useState<number | null>(null);
+  const thoughtTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const thoughtStartTimeRef = useRef<number | null>(null);
+  const [currentAssistantMessageId, setCurrentAssistantMessageId] = useState<string | null>(null);
+
+  // Función helper para enviar mensaje al agente (definida antes de los useEffects)
+  const sendMessageToAgent = useCallback(async (messageContent: string) => {
+    if (!messageContent.trim() || isLoading) return;
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: "user",
+      content: messageContent.trim(),
+    };
+
+    // Obtener mensajes actuales usando función de actualización
+    // Usamos una función que retorna el nuevo estado para asegurar que tenemos los mensajes actuales
+    let currentMessages: Message[] = [];
+    setMessages((prev) => {
+      currentMessages = [...prev, userMessage];
+      return currentMessages;
+    });
+    
+    // Asegurarnos de que siempre tengamos al menos el mensaje del usuario
+    // Si currentMessages está vacío (no debería pasar, pero por seguridad), usar solo el mensaje actual
+    const messagesToSend = currentMessages.length > 0 
+      ? currentMessages 
+      : [userMessage];
+    
+    // Validar que tenemos al menos un mensaje con contenido
+    if (messagesToSend.length === 0) {
+      console.error("Error: Array de mensajes vacío", { messagesToSend, userMessage });
+      setError(new Error("Error al preparar el mensaje. Por favor intenta de nuevo."));
+      setIsLoading(false);
+      return;
+    }
+    
+    // Validar que el último mensaje tenga contenido
+    const lastMsg = messagesToSend[messagesToSend.length - 1];
+    if (!lastMsg || !lastMsg.content || !lastMsg.content.trim()) {
+      console.error("Error: Último mensaje sin contenido", { messagesToSend, lastMsg, userMessage });
+      setError(new Error("Error: El mensaje no tiene contenido válido."));
+      setIsLoading(false);
+      return;
+    }
+    
+    // Persistir mensaje del usuario en localStorage
+    if (user?.primaryEmailAddress?.emailAddress && currentChatId) {
+      addMessageToChat(user.primaryEmailAddress.emailAddress, currentChatId, {
+        id: userMessage.id,
+        role: userMessage.role,
+        content: userMessage.content,
+      });
+    }
+    
+    setIsLoading(true);
+    setError(null);
+
+    // Crear el mensaje del asistente con contenido vacío inicialmente
+    const assistantMessageId = (Date.now() + 1).toString();
+    setCurrentAssistantMessageId(assistantMessageId);
+    const assistantMessage: Message = {
+      id: assistantMessageId,
+      role: "assistant",
+      content: "",
+      isRoutineProposal: false,
+      confirmed: false,
+    };
+
+    // Agregar el mensaje vacío inmediatamente para mostrar el streaming
+    setMessages((prev) => [...prev, assistantMessage]);
+
+    // Iniciar el timer de "thought" (razonamiento)
+    thoughtStartTimeRef.current = Date.now();
+    setThoughtTime(0);
+    thoughtTimerRef.current = setInterval(() => {
+      if (thoughtStartTimeRef.current) {
+        const elapsed = Math.floor((Date.now() - thoughtStartTimeRef.current) / 1000);
+        setThoughtTime(elapsed);
+      }
+    }, 100); // Actualizar cada 100ms
+
+    try {
+      // Obtener el access token de Google Calendar del localStorage
+      const googleAccessToken = typeof window !== "undefined" 
+        ? localStorage.getItem("google_calendar_access_token") 
+        : null;
+
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: messagesToSend.map((m) => ({
+            role: m.role,
+            content: m.content,
+          })),
+          calendarContext: {
+            viewMode: viewMode,
+            currentDate: currentDate.toISOString().split("T")[0],
+          },
+          googleAccessToken: googleAccessToken,
+        }),
+      });
+
+      if (!response.ok) {
+        // Remover el mensaje vacío si hay error
+        setMessages((prev) => prev.filter((msg) => msg.id !== assistantMessageId));
+        
+        if (response.status === 429) {
+          const text = await response.text();
+          throw new Error(text || "Servicio ocupado. Intenta de nuevo en unos segundos.");
+        }
+        throw new Error("Error en la respuesta del servidor");
+      }
+
+      // Detener el timer de "thought" cuando empieza a llegar la respuesta
+      if (thoughtTimerRef.current) {
+        clearInterval(thoughtTimerRef.current);
+        thoughtTimerRef.current = null;
+      }
+      // Guardar el tiempo final de thought
+      if (thoughtStartTimeRef.current) {
+        const finalThoughtTime = Math.floor((Date.now() - thoughtStartTimeRef.current) / 1000);
+        setThoughtTime(finalThoughtTime);
+        thoughtStartTimeRef.current = null;
+      }
+
+      // Leer el stream
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let accumulatedText = "";
+
+      if (!reader) {
+        throw new Error("No se pudo obtener el stream de respuesta");
+      }
+
+      // Detener el timer de "thought" cuando empieza a llegar la respuesta
+      if (thoughtTimerRef.current) {
+        clearInterval(thoughtTimerRef.current);
+        thoughtTimerRef.current = null;
+      }
+      // Guardar el tiempo final de thought
+      if (thoughtStartTimeRef.current) {
+        const finalThoughtTime = Math.floor((Date.now() - thoughtStartTimeRef.current) / 1000);
+        setThoughtTime(finalThoughtTime);
+        thoughtStartTimeRef.current = null;
+      }
+
+      // Función para actualizar el mensaje y hacer scroll
+      const updateMessage = (text: string) => {
+        setMessages((prev) => 
+          prev.map((msg) => 
+            msg.id === assistantMessageId 
+              ? { ...msg, content: text }
+              : msg
+          )
+        );
+        // Hacer scroll al final después de un pequeño delay para permitir el render
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        }, 0);
+      };
+
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) break;
+        
+        // Decodificar el chunk y acumular
+        const chunk = decoder.decode(value, { stream: true });
+        accumulatedText += chunk;
+        
+        // Actualizar el mensaje en tiempo real con cada chunk
+        updateMessage(accumulatedText);
+      }
+
+      // Una vez completado, verificar si es una propuesta
+      const isProposal = isRoutineProposal(accumulatedText);
+      
+      // Limpiar el tiempo de thought después de un breve delay para que se vea el tiempo final
+      setTimeout(() => {
+        setThoughtTime(null);
+        setCurrentAssistantMessageId(null);
+      }, 2000); // Mantener visible por 2 segundos después de completar
+      
+      // Actualizar el mensaje final con el flag de propuesta
+      setMessages((prev) => 
+        prev.map((msg) => 
+          msg.id === assistantMessageId 
+            ? { ...msg, content: accumulatedText, isRoutineProposal: isProposal }
+            : msg
+        )
+      );
+
+      // Persistir mensajes en localStorage (usar accumulatedText)
+      if (user?.primaryEmailAddress?.emailAddress && currentChatId) {
+        addMessageToChat(user.primaryEmailAddress.emailAddress, currentChatId, {
+          id: assistantMessageId,
+          role: "assistant",
+          content: accumulatedText,
+          isRoutineProposal: isProposal,
+          confirmed: false,
+        });
+      }
+
+      // Si es una propuesta, generar eventos preview
+      if (isProposal) {
+        const parsedEvents = parseRoutineProposal(accumulatedText);
+        if (parsedEvents.length > 0) {
+          setPreviewEvents(parsedEvents);
+        }
+      }
+
+      // Si se crearon eventos, actualizar el calendario y limpiar previews
+      if (didCreateEvents(accumulatedText)) {
+        setPreviewEvents([]);
+        setTimeout(async () => {
+          if (calendarRefreshRef.current) {
+            await calendarRefreshRef.current();
+          }
+        }, 500);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error("Error desconocido"));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user?.primaryEmailAddress?.emailAddress, currentChatId, viewMode, currentDate, isLoading]);
 
   // Inicializar chat desde localStorage al cargar
   useEffect(() => {
-    if (!session?.user?.email || chatInitializedRef.current) return;
+    if (!user?.primaryEmailAddress?.emailAddress || chatInitializedRef.current || !isLoaded) return;
     
-    const userId = session.user.email;
+    const userId = user.primaryEmailAddress.emailAddress;
     const chats = loadChats(userId);
     
     // Si hay chats, cargar el más reciente
@@ -222,11 +454,42 @@ export default function AppPage() {
     }
     
     chatInitializedRef.current = true;
-  }, [session?.user?.email]);
-
-  // Auto-scroll to bottom when new messages arrive
+  }, [user?.primaryEmailAddress?.emailAddress, isLoaded]);
+  
+  // Manejar mensaje pendiente después de que el chat esté inicializado
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (!user?.primaryEmailAddress?.emailAddress || !currentChatId || !chatInitializedRef.current || pendingMessageProcessedRef.current) return;
+    
+    // Verificar si hay un mensaje pendiente de la landing page (solo una vez)
+    if (typeof window !== "undefined") {
+      const pendingMessage = localStorage.getItem("calendable-pending-message");
+      if (pendingMessage && pendingMessage.trim()) {
+        pendingMessageProcessedRef.current = true;
+        // Limpiar el mensaje pendiente inmediatamente para evitar procesarlo dos veces
+        localStorage.removeItem("calendable-pending-message");
+        
+        // Esperar un poco más para asegurar que el estado de messages esté completamente inicializado
+        // Especialmente si se cargaron mensajes previos del localStorage
+        // Usamos requestAnimationFrame para asegurar que el DOM y el estado estén listos
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            // Verificar que el estado esté listo antes de enviar
+            if (chatInitializedRef.current && currentChatId && !isLoading) {
+              sendMessageToAgent(pendingMessage.trim());
+            }
+          }, 500);
+        });
+      }
+    }
+  }, [user?.primaryEmailAddress?.emailAddress, currentChatId, sendMessageToAgent, isLoading]);
+
+  // Auto-scroll to bottom when new messages arrive o cuando cambia el contenido
+  useEffect(() => {
+    // Usar un pequeño delay para asegurar que el DOM se haya actualizado
+    const timeoutId = setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 50);
+    return () => clearTimeout(timeoutId);
   }, [messages]);
 
   // Ocultar welcome después de 5 segundos o cuando hay mensajes
@@ -241,9 +504,9 @@ export default function AppPage() {
 
   // Persistir mensajes automáticamente cuando cambian
   useEffect(() => {
-    if (!session?.user?.email || !currentChatId || messages.length === 0) return;
+    if (!user?.primaryEmailAddress?.emailAddress || !currentChatId || messages.length === 0) return;
     
-    const userId = session.user.email;
+    const userId = user.primaryEmailAddress.emailAddress;
     const chats = loadChats(userId);
     const currentChat = chats.find((c) => c.id === currentChatId);
     
@@ -260,29 +523,13 @@ export default function AppPage() {
       currentChat.updatedAt = Date.now();
       saveChat(userId, currentChat);
     }
-  }, [messages, currentChatId, session?.user?.email]);
+  }, [messages, currentChatId, user?.primaryEmailAddress?.emailAddress]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: "user",
-      content: input.trim(),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-    
-    // Persistir mensaje del usuario en localStorage
-    if (session?.user?.email && currentChatId) {
-      addMessageToChat(session.user.email, currentChatId, {
-        id: userMessage.id,
-        role: userMessage.role,
-        content: userMessage.content,
-      });
-    }
-    
+    const messageContent = input.trim();
     setInput("");
     setInputRows(1);
     if (textareaRef.current) {
@@ -292,80 +539,8 @@ export default function AppPage() {
         textareaRef.current?.focus();
       }, 100);
     }
-    setIsLoading(true);
-    setError(null);
 
-    try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: [...messages, userMessage].map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
-          calendarContext: {
-            viewMode: viewMode,
-            currentDate: currentDate.toISOString().split("T")[0],
-          },
-        }),
-      });
-
-      // Manejar diferentes códigos de error
-      if (!response.ok) {
-        if (response.status === 429) {
-          const text = await response.text();
-          throw new Error(text || "Servicio ocupado. Intenta de nuevo en unos segundos.");
-        }
-        throw new Error("Error en la respuesta del servidor");
-      }
-
-      const text = await response.text();
-      const isProposal = isRoutineProposal(text);
-
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: text,
-        isRoutineProposal: isProposal,
-        confirmed: false,
-      };
-
-      setMessages((prev) => [...prev, assistantMessage]);
-
-      // Persistir mensajes en localStorage
-      if (session?.user?.email && currentChatId) {
-        addMessageToChat(session.user.email, currentChatId, {
-          id: assistantMessage.id,
-          role: assistantMessage.role,
-          content: assistantMessage.content,
-          isRoutineProposal: assistantMessage.isRoutineProposal,
-          confirmed: assistantMessage.confirmed,
-        });
-      }
-
-      // Si es una propuesta, generar eventos preview
-      if (isProposal) {
-        const parsedEvents = parseRoutineProposal(text);
-        if (parsedEvents.length > 0) {
-          setPreviewEvents(parsedEvents);
-        }
-      }
-
-      // Si se crearon eventos, actualizar el calendario y limpiar previews
-      if (didCreateEvents(text)) {
-        setPreviewEvents([]); // Limpiar previews
-        setTimeout(async () => {
-          if (calendarRefreshRef.current) {
-            await calendarRefreshRef.current();
-          }
-        }, 500);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error("Error desconocido"));
-    } finally {
-      setIsLoading(false);
-    }
+    await sendMessageToAgent(messageContent);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -492,13 +667,13 @@ export default function AppPage() {
 
   // Eliminar conversación actual
   const handleDeleteConversation = () => {
-    if (!session?.user?.email || !currentChatId) return;
+    if (!user?.primaryEmailAddress?.emailAddress || !currentChatId) return;
     
     if (confirm("¿Estás seguro de que quieres eliminar esta conversación?")) {
-      deleteChat(session.user.email, currentChatId);
+      deleteChat(user.primaryEmailAddress.emailAddress, currentChatId);
       
       // Crear un nuevo chat
-      const newChat = createChat(session.user.email);
+      const newChat = createChat(user.primaryEmailAddress.emailAddress);
       setCurrentChatId(newChat.id);
       setMessages([]);
       setPreviewEvents([]);
@@ -645,7 +820,7 @@ export default function AppPage() {
 
             <div className="flex items-center gap-2 shrink-0">
               <ThemeToggle />
-              {session?.user && (
+              {user && (
                 <Dropdown placement="bottom-end">
                   <DropdownTrigger>
                     <Button
@@ -653,13 +828,13 @@ export default function AppPage() {
                       className="h-8 px-2 gap-2 min-w-0"
                     >
                       <Avatar
-                        src={session.user.image || undefined}
-                        name={session.user.name || "User"}
+                        src={user.imageUrl || undefined}
+                        name={user.fullName || user.firstName || "User"}
                         size="sm"
                         className="w-7 h-7"
                       />
                       <span className="hidden sm:inline text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                        {session.user.name?.split(' ')[0] || 'Usuario'}
+                        {user.firstName || user.primaryEmailAddress?.emailAddress?.split('@')[0] || 'Usuario'}
                       </span>
                     </Button>
                   </DropdownTrigger>
@@ -669,14 +844,17 @@ export default function AppPage() {
                       className="h-16 gap-3"
                       textValue="Profile"
                     >
-                      <p className="font-semibold text-base">{session.user.name}</p>
-                      <p className="text-sm text-zinc-500">{session.user.email}</p>
+                      <p className="font-semibold text-base">{user.fullName || user.firstName || "Usuario"}</p>
+                      <p className="text-sm text-zinc-500">{user.primaryEmailAddress?.emailAddress}</p>
                     </DropdownItem>
                     <DropdownItem
                       key="logout"
                       color="danger"
                       className="text-base"
-                      onPress={() => signOut({ callbackUrl: "/" })}
+                      onPress={async () => {
+                        await signOut();
+                        router.push("/");
+                      }}
                     >
                       Cerrar sesión
                     </DropdownItem>
@@ -740,7 +918,7 @@ export default function AppPage() {
                         </div>
                         <div className="flex-1">
                           <h3 className="font-semibold text-zinc-900 dark:text-white mb-1">
-                            ¡Hola{session?.user?.name ? `, ${session.user.name.split(' ')[0]}` : ''}! 👋
+                            ¡Hola{user?.firstName ? `, ${user.firstName}` : ''}! 👋
                           </h3>
                           <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
                             ¿Qué te gustaría planificar o hacer? Escribe aquí y te ayudo a organizarlo en tu calendario.
@@ -825,6 +1003,14 @@ export default function AppPage() {
                             transition={{ duration: 0.3, delay: index * 0.05 }}
                             className="space-y-2"
                           >
+                            {/* Mostrar tiempo de "thought" arriba del mensaje del asistente */}
+                            {message.role === "assistant" && thoughtTime !== null && message.id === currentAssistantMessageId && (
+                              <div className="flex justify-start mb-1">
+                                <span className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">
+                                  Thought for {thoughtTime}s
+                                </span>
+                              </div>
+                            )}
                             <div
                               className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
                             >
@@ -835,7 +1021,12 @@ export default function AppPage() {
                                     : "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white border border-zinc-200/80 dark:border-zinc-700/80 rounded-tl-sm"
                                 }`}
                               >
-                                <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                                <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                                  {message.content}
+                                  {isLoading && message.id === currentAssistantMessageId && message.content && (
+                                    <span className="inline-block w-2 h-4 ml-1 bg-zinc-400 dark:bg-zinc-500 animate-pulse" />
+                                  )}
+                                </p>
                               </div>
                             </div>
                             {/* Botones de confirmación para propuestas de rutina */}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useSession } from "next-auth/react";
+import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useEffect, ReactNode } from "react";
 import { Spinner } from "@heroui/react";
@@ -11,16 +11,16 @@ interface AuthGuardProps {
 }
 
 export function AuthGuard({ children, fallback }: AuthGuardProps) {
-    const { status } = useSession();
+    const { isLoaded, isSignedIn } = useUser();
     const router = useRouter();
 
     useEffect(() => {
-        if (status === "unauthenticated") {
-            router.push("/auth/signin?callbackUrl=/app");
+        if (isLoaded && !isSignedIn) {
+            router.push("/auth/signin?redirect_url=/app");
         }
-    }, [status, router]);
+    }, [isLoaded, isSignedIn, router]);
 
-    if (status === "loading") {
+    if (!isLoaded) {
         return (
             fallback || (
                 <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-background via-background to-primary/10">
@@ -33,7 +33,7 @@ export function AuthGuard({ children, fallback }: AuthGuardProps) {
         );
     }
 
-    if (status === "unauthenticated") {
+    if (!isSignedIn) {
         return null;
     }
 

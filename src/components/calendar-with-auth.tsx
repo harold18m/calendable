@@ -1,8 +1,7 @@
 "use client";
 
-import { useSession, signIn } from "next-auth/react";
+import { useUser } from "@clerk/nextjs";
 import { useState, useCallback, useEffect, useMemo } from "react";
-import { GoogleAuthButton } from "./google-auth-button";
 import {
     Card,
     CardBody,
@@ -88,7 +87,7 @@ export function CalendarWithAuth({
     onCurrentDateChange,
     hideControls = false,
 }: CalendarWithAuthProps) {
-    const { data: session, status } = useSession();
+    const { user, isLoaded } = useUser();
     const [events, setEvents] = useState<CalendarEvent[]>([]);
     const [isLoadingEvents, setIsLoadingEvents] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -116,21 +115,16 @@ export function CalendarWithAuth({
     };
 
     useEffect(() => {
-        if (session?.accessToken) {
-            onAccessTokenReady?.(session.accessToken);
+        // Ya no necesitamos accessToken para eventos locales
+        // Pero mantenemos la compatibilidad con el callback si se necesita
+        if (user?.id) {
+            onAccessTokenReady?.(user.id);
         }
-    }, [session?.accessToken, onAccessTokenReady]);
+    }, [user?.id, onAccessTokenReady]);
 
-    // Si hay error de refresh token, forzar re-login
-    useEffect(() => {
-        if (session?.error === "RefreshAccessTokenError") {
-            console.log("Token refresh failed, redirecting to sign in...");
-            signIn("google"); // Forzar re-autenticación
-        }
-    }, [session?.error]);
 
     const loadEvents = useCallback(async () => {
-        if (!session?.accessToken) return;
+        if (!user?.id) return; // Usamos user.id de Clerk
 
         setIsLoadingEvents(true);
         setError(null);
@@ -142,55 +136,66 @@ export function CalendarWithAuth({
             const end = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
             end.setDate(end.getDate() + 7); // Include next week
 
+            // Usar Google Calendar API
             const response = await fetch(
-                `https://www.googleapis.com/calendar/v3/calendars/primary/events?` +
-                new URLSearchParams({
-                    timeMin: start.toISOString(),
-                    timeMax: end.toISOString(),
-                    maxResults: "100",
-                    singleEvents: "true",
-                    orderBy: "startTime",
-                }),
+                `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${start.toISOString()}&timeMax=${end.toISOString()}&maxResults=100&singleEvents=true&orderBy=startTime`,
                 {
                     headers: {
-                        Authorization: `Bearer ${session.accessToken}`,
+                        Authorization: `Bearer ${localStorage.getItem("google_calendar_access_token") || ""}`,
                     },
                 }
             );
 
             if (response.status === 401) {
-                // Token inválido, forzar re-autenticación
-                console.log("401 Unauthorized, forcing re-auth...");
-                signIn("google");
+                setError("Sesión expirada. Por favor inicia sesión nuevamente.");
                 return;
             }
 
             if (!response.ok) {
-                throw new Error("Error al cargar eventos");
+                throw new Error(`Error al cargar eventos: ${response.statusText}`);
+            }
+
+            if (response.status === 401) {
+                setError("Token de Google Calendar expirado. Por favor reconecta tu cuenta.");
+                return;
+            }
+
+            if (!response.ok) {
+                throw new Error(`Error al cargar eventos: ${response.statusText}`);
             }
 
             const data = await response.json();
-            setEvents(data.items || []);
-            onEventsLoaded?.(data.items || []);
+            // Convertir eventos de Google Calendar al formato esperado por el calendario
+            const calendarEvents: CalendarEvent[] = (data.items || []).map((event: any) => ({
+                id: event.id,
+                summary: event.summary || "Sin título",
+                start: event.start,
+                end: event.end,
+                description: event.description || "",
+                location: event.location || "",
+            }));
+            
+            setEvents(calendarEvents);
+            onEventsLoaded?.(calendarEvents);
         } catch (err) {
             setError(err instanceof Error ? err.message : "Error desconocido");
         } finally {
             setIsLoadingEvents(false);
         }
-    }, [session?.accessToken, onEventsLoaded, currentDate]);
+    }, [user?.id, onEventsLoaded, currentDate]);
 
     useEffect(() => {
-        if (session?.accessToken) {
+        if (isLoaded && user?.id) {
             loadEvents();
         }
-    }, [session?.accessToken, loadEvents]);
+    }, [isLoaded, user?.id, loadEvents]);
 
     // Exponer función de refresh para actualizaciones externas
     useEffect(() => {
-        if (session?.accessToken && onRefreshReady) {
+        if (user?.id && onRefreshReady) {
             onRefreshReady(loadEvents);
         }
-    }, [session?.accessToken, onRefreshReady, loadEvents]);
+    }, [user?.id, onRefreshReady, loadEvents]);
 
     // Get events for a specific date (including preview events)
     const getEventsForDate = useCallback((date: Date) => {
@@ -229,7 +234,7 @@ export function CalendarWithAuth({
         );
     }
 
-    if (status === "unauthenticated" || !session) {
+    if (!isLoaded || !user) {
         return (
             <div className="text-center py-8">
                 <div className="w-16 h-16 mx-auto mb-4 bg-primary/10 rounded-full flex items-center justify-center">
@@ -238,12 +243,11 @@ export function CalendarWithAuth({
                     </svg>
                 </div>
                 <h3 className="text-lg font-semibold mb-2">
-                    Conecta tu Google Calendar
+                    Inicia sesión
                 </h3>
                 <p className="text-sm text-default-500 mb-6 max-w-sm mx-auto">
-                    Inicia sesión con tu cuenta de Google para ver y gestionar tu calendario directamente desde aquí.
+                    Inicia sesión para ver y gestionar tu calendario.
                 </p>
-                <GoogleAuthButton />
             </div>
         );
     }

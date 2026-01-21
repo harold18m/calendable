@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-
-import { AuthProvider } from "@/components/auth-provider";
+import { ClerkProvider } from "@clerk/nextjs";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 
@@ -15,14 +14,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" suppressHydrationWarning>
-      <body>
-        <Providers>
-          <AuthProvider>
+    <ClerkProvider>
+      <html lang="es" suppressHydrationWarning>
+        <body>
+          <Providers>
             {children}
-          </AuthProvider>
-        </Providers>
-      </body>
-    </html>
+          </Providers>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }
