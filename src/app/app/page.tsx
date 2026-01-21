@@ -13,6 +13,8 @@ import {
   DropdownItem,
   ScrollShadow,
   Spinner,
+  Tabs,
+  Tab,
 } from "@heroui/react";
 import { useRef, useEffect, useState, FormEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -156,6 +158,8 @@ export default function AppPage() {
   const [showWelcome, setShowWelcome] = useState(true);
   const [inputRows, setInputRows] = useState(1);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [viewMode, setViewMode] = useState<"WEEK" | "MONTH" | "DAY">("WEEK");
+  const [currentDate, setCurrentDate] = useState(new Date());
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -356,43 +360,159 @@ export default function AppPage() {
     setPreviewEvents([]); // Limpiar previews al cancelar
   };
 
+  // Navegación del calendario
+  const navigateCalendar = (direction: number) => {
+    const newDate = new Date(currentDate);
+    if (viewMode === "WEEK") {
+      newDate.setDate(newDate.getDate() + (direction * 7));
+    } else if (viewMode === "DAY") {
+      newDate.setDate(newDate.getDate() + direction);
+    } else {
+      newDate.setMonth(newDate.getMonth() + direction);
+    }
+    setCurrentDate(newDate);
+  };
+
+  const goToToday = () => setCurrentDate(new Date());
+
+  // Formatear fecha actual para mostrar en navbar
+  const getCurrentPeriodDisplay = () => {
+    const DAYS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+    const MONTHS = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+    
+    if (viewMode === "DAY") {
+      return `${DAYS[currentDate.getDay()]} ${currentDate.getDate()} ${MONTHS[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+    } else if (viewMode === "WEEK") {
+      const weekStart = new Date(currentDate);
+      weekStart.setDate(currentDate.getDate() - currentDate.getDay());
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      
+      if (weekStart.getMonth() === weekEnd.getMonth()) {
+        return `${weekStart.getDate()} - ${weekEnd.getDate()} ${MONTHS[weekStart.getMonth()]} ${weekStart.getFullYear()}`;
+      }
+      return `${weekStart.getDate()} ${MONTHS[weekStart.getMonth()].slice(0, 3)} - ${weekEnd.getDate()} ${MONTHS[weekEnd.getMonth()].slice(0, 3)} ${weekEnd.getFullYear()}`;
+    } else {
+      return `${MONTHS[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+    }
+  };
+
   return (
     <AuthGuard>
       <main className="h-screen flex flex-col bg-white dark:bg-zinc-900">
         {/* Top Navbar - Estilo Lovable */}
-        <nav className="h-14 shrink-0 bg-white dark:bg-zinc-900">
-          <div className="h-full px-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-7 h-7 rounded-lg bg-linear-to-br from-blue-600 to-blue-700 flex items-center justify-center">
+        <nav className="h-14 shrink-0 bg-white dark:bg-zinc-900 relative">
+          <div className="h-full px-4 flex items-center justify-between gap-4">
+            {/* Logo y nombre - siempre visible */}
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="w-7 h-7 rounded-lg bg-linear-to-br from-blue-600 to-blue-700 flex items-center justify-center shrink-0">
                 <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
                 </svg>
               </div>
-              <h1 className="text-base font-semibold text-zinc-900 dark:text-white">
+              <h1 className="text-base font-semibold text-zinc-900 dark:text-white shrink-0">
                 Calendable
               </h1>
-              {/* Botón para mostrar/ocultar chat */}
-              <Button
-                isIconOnly
-                variant="light"
-                size="sm"
-                onPress={() => setIsChatOpen(!isChatOpen)}
-                className="h-7 w-7 min-w-7 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
-                aria-label={isChatOpen ? "Ocultar chat" : "Mostrar chat"}
-              >
-                {isChatOpen ? (
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M18.75 19.5l-7.5-7.5 7.5-7.5m-6 15L5.25 12l7.5-7.5" />
-                  </svg>
-                ) : (
+              {/* Botón para mostrar/ocultar chat - al lado del logo cuando está cerrado */}
+              {!isChatOpen && (
+                <Button
+                  isIconOnly
+                  variant="light"
+                  size="sm"
+                  onPress={() => setIsChatOpen(!isChatOpen)}
+                  className="h-7 w-7 min-w-7 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 shrink-0"
+                  aria-label="Mostrar chat"
+                >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 4.5l7.5 7.5-7.5 7.5m-6-15l7.5 7.5-7.5 7.5" />
                   </svg>
-                )}
-              </Button>
+                </Button>
+              )}
             </div>
 
-            <div className="flex items-center gap-2">
+            {/* Botón para ocultar chat - alineado con el borde derecho del sidebar cuando está abierto */}
+            {isChatOpen && (
+              <div 
+                className="absolute transition-all duration-300 ease-in-out"
+                style={{ left: '400px' }}
+              >
+                <Button
+                  isIconOnly
+                  variant="light"
+                  size="sm"
+                  onPress={() => setIsChatOpen(!isChatOpen)}
+                  className="h-7 w-7 min-w-7 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 shrink-0"
+                  aria-label="Ocultar chat"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M18.75 19.5l-7.5-7.5 7.5-7.5m-6 15L5.25 12l7.5-7.5" />
+                  </svg>
+                </Button>
+              </div>
+            )}
+
+            {/* Controles del calendario */}
+            <div className="flex items-center gap-2 flex-1 min-w-0 justify-center">
+              {/* Tabs de vista */}
+              <Tabs
+                selectedKey={viewMode}
+                onSelectionChange={(key) => setViewMode(key as "WEEK" | "MONTH" | "DAY")}
+                size="sm"
+                variant="light"
+                classNames={{
+                  tabList: "gap-1 p-0.5 bg-zinc-100 dark:bg-zinc-800 rounded-lg",
+                  tab: "h-7 px-2.5 text-xs min-w-12",
+                  cursor: "bg-white dark:bg-zinc-700 shadow-sm",
+                }}
+              >
+                <Tab key="DAY" title="Día" />
+                <Tab key="WEEK" title="Semana" />
+                <Tab key="MONTH" title="Mes" />
+              </Tabs>
+
+              {/* Navegación */}
+              <div className="flex items-center gap-1 ml-2">
+                <Button
+                  isIconOnly
+                  size="sm"
+                  variant="light"
+                  onPress={() => navigateCalendar(-1)}
+                  className="h-7 w-7 min-w-7 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
+                  aria-label="Anterior"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="flat"
+                  onPress={goToToday}
+                  className="h-7 px-2.5 text-xs min-w-0 font-medium"
+                >
+                  Hoy
+                </Button>
+                <Button
+                  isIconOnly
+                  size="sm"
+                  variant="light"
+                  onPress={() => navigateCalendar(1)}
+                  className="h-7 w-7 min-w-7 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
+                  aria-label="Siguiente"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </Button>
+              </div>
+
+              {/* Fecha actual */}
+              <div className="ml-4 text-sm font-medium text-zinc-700 dark:text-zinc-300 truncate">
+                {getCurrentPeriodDisplay()}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
               <ThemeToggle />
               {session?.user && (
                 <Dropdown placement="bottom-end">
@@ -679,7 +799,7 @@ export default function AppPage() {
           <div className="flex-1 flex flex-col overflow-hidden relative">
             {/* Calendar Content con esquinas redondeadas */}
             <div className="flex-1 flex flex-col overflow-hidden rounded-tl-2xl bg-zinc-50 dark:bg-zinc-950 shadow-sm border border-zinc-200/50 dark:border-zinc-800/50">
-              <div className="flex-1 flex flex-col overflow-hidden p-6">
+              <div className="flex-1 flex flex-col overflow-hidden p-4">
                 <CalendarWithAuth
                   timezone="America/Lima"
                   onAccessTokenReady={(token) => console.log("Token listo para API")}
@@ -687,6 +807,11 @@ export default function AppPage() {
                     calendarRefreshRef.current = refreshFn;
                   }}
                   previewEvents={previewEvents}
+                  viewMode={viewMode}
+                  onViewModeChange={setViewMode}
+                  currentDate={currentDate}
+                  onCurrentDateChange={setCurrentDate}
+                  hideControls={true}
                 />
               </div>
             </div>

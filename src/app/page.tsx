@@ -104,12 +104,12 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-zinc-900 via-purple-900/20 to-pink-500/30 dark:from-zinc-950 dark:via-purple-950/30 dark:to-pink-600/20">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-950 via-purple-950/40 to-pink-950/60 dark:from-slate-950 dark:via-purple-950/50 dark:to-pink-950/70">
       {/* Navbar */}
-      <nav className="h-16 shrink-0 bg-transparent">
+      <nav className="h-16 shrink-0 bg-transparent backdrop-blur-sm border-b border-white/5">
         <div className="h-full px-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
               <CalendarIcon />
             </div>
             <h1 className="text-lg font-semibold text-white">
@@ -122,14 +122,14 @@ export default function LandingPage() {
               variant="light"
               size="sm"
               onPress={handleGetStarted}
-              className="text-white hover:bg-white/10"
+              className="text-white/90 hover:text-white hover:bg-white/10"
             >
               Log in
             </Button>
             <Button
               size="sm"
               onPress={handleGetStarted}
-              className="bg-white text-zinc-900 hover:bg-zinc-100 font-medium"
+              className="bg-white text-slate-900 hover:bg-zinc-100 font-medium shadow-lg shadow-white/10"
               startContent={<GoogleIcon />}
             >
               Get started
@@ -147,12 +147,12 @@ export default function LandingPage() {
           className="w-full max-w-4xl"
         >
           {/* Heading */}
-          <h2 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-center text-white mb-4">
+          <h2 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-center bg-gradient-to-r from-white via-blue-100 to-purple-100 bg-clip-text text-transparent mb-4 drop-shadow-lg">
             Planifica tu vida
           </h2>
           
           {/* Subheading */}
-          <p className="text-xl sm:text-2xl text-center text-white/80 mb-12">
+          <p className="text-xl sm:text-2xl text-center text-white/90 mb-12 font-medium">
             Organiza tu calendario hablando con IA
           </p>
 
@@ -160,7 +160,7 @@ export default function LandingPage() {
           <form onSubmit={handleSubmit} className="w-full">
             <div className="relative">
               {/* Contenedor del input grande */}
-              <div className={`relative flex items-end gap-2 bg-zinc-800/90 dark:bg-zinc-900/90 backdrop-blur-sm rounded-2xl shadow-xl border border-zinc-700/50 ${
+              <div className={`relative flex items-end gap-2 bg-white/10 dark:bg-white/5 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 ${
                 inputRows > 1 ? 'pb-3' : ''
               }`}>
                 {/* Botón + a la izquierda */}
@@ -170,7 +170,7 @@ export default function LandingPage() {
                     isIconOnly
                     variant="light"
                     size="sm"
-                    className="h-8 w-8 min-w-8 text-zinc-400 hover:text-white hover:bg-zinc-700/50"
+                    className="h-8 w-8 min-w-8 text-white/70 hover:text-white hover:bg-white/10"
                     aria-label="Acciones rápidas"
                   >
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
@@ -187,7 +187,7 @@ export default function LandingPage() {
                   onKeyDown={handleKeyDown}
                   placeholder="Pregunta a Calendable qué quieres planificar..."
                   rows={1}
-                  className="flex-1 resize-none bg-transparent border-0 outline-none text-base font-medium placeholder:text-zinc-400 dark:placeholder:text-zinc-500 text-white py-4 min-h-[56px] max-h-[200px] overflow-y-auto"
+                  className="flex-1 resize-none bg-transparent border-0 outline-none text-base font-medium placeholder:text-white/50 text-white py-4 min-h-[56px] max-h-[200px] overflow-y-auto"
                   style={{ 
                     lineHeight: '28px',
                     height: '56px'
@@ -204,7 +204,7 @@ export default function LandingPage() {
                     isIconOnly
                     variant="light"
                     size="sm"
-                    className="h-8 w-8 min-w-8 text-zinc-400 hover:text-white hover:bg-zinc-700/50"
+                    className="h-8 w-8 min-w-8 text-white/70 hover:text-white hover:bg-white/10"
                     aria-label="Chat"
                   >
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -218,7 +218,7 @@ export default function LandingPage() {
                     isIconOnly
                     variant="light"
                     size="sm"
-                    className="h-8 w-8 min-w-8 text-zinc-400 hover:text-white hover:bg-zinc-700/50"
+                    className="h-8 w-8 min-w-8 text-white/70 hover:text-white hover:bg-white/10"
                     aria-label="Voz"
                   >
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -234,7 +234,7 @@ export default function LandingPage() {
                     radius="full"
                     size="sm"
                     isDisabled={!input?.trim()}
-                    className="h-8 w-8 min-w-8 bg-white text-zinc-900 hover:bg-zinc-100 shadow-sm hover:shadow-md transition-all flex-shrink-0"
+                    className="h-8 w-8 min-w-8 bg-white text-slate-900 hover:bg-zinc-100 shadow-lg shadow-white/20 hover:shadow-xl transition-all flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
                     aria-label="Enviar mensaje"
                   >
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">

@@ -32,6 +32,11 @@ interface CalendarWithAuthProps {
     onRefreshReady?: (refreshFn: () => Promise<void>) => void;
     previewEvents?: CalendarEvent[]; // Eventos de previsualización
     timezone?: string;
+    viewMode?: "WEEK" | "MONTH" | "DAY";
+    onViewModeChange?: (mode: "WEEK" | "MONTH" | "DAY") => void;
+    currentDate?: Date;
+    onCurrentDateChange?: (date: Date) => void;
+    hideControls?: boolean; // Para ocultar los controles internos cuando se usan desde el navbar
 }
 
 // Helpers
@@ -77,13 +82,38 @@ export function CalendarWithAuth({
     onRefreshReady,
     previewEvents = [],
     timezone = "America/Lima",
+    viewMode: externalViewMode,
+    onViewModeChange,
+    currentDate: externalCurrentDate,
+    onCurrentDateChange,
+    hideControls = false,
 }: CalendarWithAuthProps) {
     const { data: session, status } = useSession();
     const [events, setEvents] = useState<CalendarEvent[]>([]);
     const [isLoadingEvents, setIsLoadingEvents] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [viewMode, setViewMode] = useState<"WEEK" | "MONTH" | "DAY">("WEEK");
-    const [currentDate, setCurrentDate] = useState(new Date());
+    const [internalViewMode, setInternalViewMode] = useState<"WEEK" | "MONTH" | "DAY">("WEEK");
+    const [internalCurrentDate, setInternalCurrentDate] = useState(new Date());
+    
+    // Usar props externas si están disponibles, sino usar estado interno
+    const viewMode = externalViewMode ?? internalViewMode;
+    const currentDate = externalCurrentDate ?? internalCurrentDate;
+    
+    const setViewMode = (mode: "WEEK" | "MONTH" | "DAY") => {
+        if (onViewModeChange) {
+            onViewModeChange(mode);
+        } else {
+            setInternalViewMode(mode);
+        }
+    };
+    
+    const setCurrentDate = (date: Date) => {
+        if (onCurrentDateChange) {
+            onCurrentDateChange(date);
+        } else {
+            setInternalCurrentDate(date);
+        }
+    };
 
     useEffect(() => {
         if (session?.accessToken) {
@@ -219,78 +249,82 @@ export function CalendarWithAuth({
     }
 
     return (
-        <div className="flex flex-col h-full space-y-3">
-            {/* Tabs + Navigation */}
-            <div className="flex items-center justify-between gap-2">
-                <Tabs
-                    selectedKey={viewMode}
-                    onSelectionChange={(key) => setViewMode(key as "WEEK" | "MONTH" | "DAY")}
-                    size="sm"
-                    variant="light"
-                    classNames={{
-                        tabList: "gap-1 p-0.5 bg-default-100 rounded-lg",
-                        tab: "h-6 px-2 text-xs",
-                        cursor: "bg-background shadow-sm",
-                    }}
-                >
-                    <Tab key="DAY" title="Día" />
-                    <Tab key="WEEK" title="Semana" />
-                    <Tab key="MONTH" title="Mes" />
-                </Tabs>
+        <div className="flex flex-col h-full">
+            {/* Tabs + Navigation - Solo mostrar si no están ocultos */}
+            {!hideControls && (
+                <>
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                        <Tabs
+                            selectedKey={viewMode}
+                            onSelectionChange={(key) => setViewMode(key as "WEEK" | "MONTH" | "DAY")}
+                            size="sm"
+                            variant="light"
+                            classNames={{
+                                tabList: "gap-1 p-0.5 bg-default-100 rounded-lg",
+                                tab: "h-6 px-2 text-xs",
+                                cursor: "bg-background shadow-sm",
+                            }}
+                        >
+                            <Tab key="DAY" title="Día" />
+                            <Tab key="WEEK" title="Semana" />
+                            <Tab key="MONTH" title="Mes" />
+                        </Tabs>
 
-                <div className="flex items-center gap-1">
-                    <Button
-                        isIconOnly
-                        size="sm"
-                        variant="light"
-                        onPress={() => navigate(-1)}
-                        className="w-6 h-6 min-w-0"
-                    >
-                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                        </svg>
-                    </Button>
-                    <Button
-                        size="sm"
-                        variant="flat"
-                        onPress={goToToday}
-                        className="h-6 px-2 text-xs min-w-0"
-                    >
-                        Hoy
-                    </Button>
-                    <Button
-                        isIconOnly
-                        size="sm"
-                        variant="light"
-                        onPress={() => navigate(1)}
-                        className="w-6 h-6 min-w-0"
-                    >
-                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                    </Button>
-                </div>
-            </div>
+                        <div className="flex items-center gap-1">
+                            <Button
+                                isIconOnly
+                                size="sm"
+                                variant="light"
+                                onPress={() => navigate(-1)}
+                                className="w-6 h-6 min-w-0"
+                            >
+                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                </svg>
+                            </Button>
+                            <Button
+                                size="sm"
+                                variant="flat"
+                                onPress={goToToday}
+                                className="h-6 px-2 text-xs min-w-0"
+                            >
+                                Hoy
+                            </Button>
+                            <Button
+                                isIconOnly
+                                size="sm"
+                                variant="light"
+                                onPress={() => navigate(1)}
+                                className="w-6 h-6 min-w-0"
+                            >
+                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
+                            </Button>
+                        </div>
+                    </div>
 
-            {/* Current period display */}
-            <div className="text-center">
-                <p className="text-sm font-medium">
-                    {viewMode === "DAY"
-                        ? `${DAYS[currentDate.getDay()]} ${currentDate.getDate()} ${MONTHS[currentDate.getMonth()]} ${currentDate.getFullYear()}`
-                        : viewMode === "WEEK"
-                            ? (() => {
-                                const weekDates = getWeekDates(currentDate);
-                                const start = weekDates[0];
-                                const end = weekDates[6];
-                                if (start.getMonth() === end.getMonth()) {
-                                    return `${start.getDate()} - ${end.getDate()} ${MONTHS[start.getMonth()]} ${start.getFullYear()}`;
-                                }
-                                return `${start.getDate()} ${MONTHS[start.getMonth()].slice(0, 3)} - ${end.getDate()} ${MONTHS[end.getMonth()].slice(0, 3)} ${end.getFullYear()}`;
-                            })()
-                            : `${MONTHS[currentDate.getMonth()]} ${currentDate.getFullYear()}`
-                    }
-                </p>
-            </div>
+                    {/* Current period display */}
+                    <div className="text-center mb-3">
+                        <p className="text-sm font-medium">
+                            {viewMode === "DAY"
+                                ? `${DAYS[currentDate.getDay()]} ${currentDate.getDate()} ${MONTHS[currentDate.getMonth()]} ${currentDate.getFullYear()}`
+                                : viewMode === "WEEK"
+                                    ? (() => {
+                                        const weekDates = getWeekDates(currentDate);
+                                        const start = weekDates[0];
+                                        const end = weekDates[6];
+                                        if (start.getMonth() === end.getMonth()) {
+                                            return `${start.getDate()} - ${end.getDate()} ${MONTHS[start.getMonth()]} ${start.getFullYear()}`;
+                                        }
+                                        return `${start.getDate()} ${MONTHS[start.getMonth()].slice(0, 3)} - ${end.getDate()} ${MONTHS[end.getMonth()].slice(0, 3)} ${end.getFullYear()}`;
+                                    })()
+                                    : `${MONTHS[currentDate.getMonth()]} ${currentDate.getFullYear()}`
+                            }
+                        </p>
+                    </div>
+                </>
+            )}
 
             {/* Error */}
             {error && (
@@ -351,7 +385,7 @@ function getEventColorClass(index: number, isPreview: boolean = false): string {
 }
 
 // Helper to get event position and height based on time
-function getEventStyle(event: CalendarEvent, hourHeight: number = 48) {
+function getEventStyle(event: CalendarEvent, hourHeight: number = 64) {
     const start = new Date(event.start.dateTime || event.start.date || "");
     const end = new Date(event.end.dateTime || event.end.date || "");
 
@@ -375,7 +409,7 @@ function DayView({
     const today = new Date();
     const isToday = isSameDay(currentDate, today);
     const dayEvents = getEventsForDate(currentDate);
-    const hourHeight = 48;
+    const hourHeight = 64;
 
     // Current time indicator position
     const now = new Date();
@@ -418,7 +452,7 @@ function DayView({
                         style={{ height: `${hourHeight}px` }}
                     >
                         {/* Time label */}
-                        <div className="w-14 shrink-0 pr-2 text-right">
+                        <div className="w-16 shrink-0 pr-2 text-right">
                             <span className="text-[10px] text-default-400 -mt-2 block">
                                 {hour.toString().padStart(2, '0')}:00
                             </span>
@@ -429,7 +463,7 @@ function DayView({
                 ))}
 
                 {/* Events overlay */}
-                <div className="absolute top-0 left-14 right-0 bottom-0">
+                <div className="absolute top-0 left-16 right-0 bottom-0">
                     {dayEvents
                         .filter(e => e.start.dateTime) // Only timed events
                         .map((event, idx) => {
@@ -499,7 +533,7 @@ function WeekView({
 }) {
     const weekDates = getWeekDates(currentDate);
     const today = new Date();
-    const hourHeight = 40;
+    const hourHeight = 56;
 
     // Current time indicator
     const now = new Date();
@@ -509,7 +543,7 @@ function WeekView({
     return (
         <div className="border border-divider rounded-lg overflow-hidden h-full flex flex-col">
             {/* Days header */}
-            <div className="grid grid-cols-[56px_repeat(7,1fr)] bg-default-50 border-b border-divider shrink-0">
+            <div className="grid grid-cols-[64px_repeat(7,1fr)] bg-default-50 border-b border-divider shrink-0">
                 <div />
                 {weekDates.map((date, i) => {
                     const isToday = isSameDay(date, today);
@@ -535,8 +569,8 @@ function WeekView({
                         className="absolute z-20 flex items-center pointer-events-none"
                         style={{
                             top: `${currentTimeTop}px`,
-                            left: `calc(56px + ${todayIndex} * ((100% - 56px) / 7))`,
-                            width: `calc((100% - 56px) / 7)`
+                            left: `calc(64px + ${todayIndex} * ((100% - 64px) / 7))`,
+                            width: `calc((100% - 64px) / 7)`
                         }}
                     >
                         <div className="w-2 h-2 bg-red-500 rounded-full -ml-1" />
@@ -548,7 +582,7 @@ function WeekView({
                 {HOURS.map((hour) => (
                     <div
                         key={hour}
-                        className="grid grid-cols-[56px_repeat(7,1fr)]"
+                        className="grid grid-cols-[64px_repeat(7,1fr)]"
                         style={{ height: `${hourHeight}px` }}
                     >
                         {/* Time label */}
@@ -650,7 +684,7 @@ function MonthView({
                     return (
                         <div
                             key={i}
-                            className={`min-h-15 p-0.5 ${i % 7 > 0 ? 'border-l border-divider' : ''} ${!isFirstRow ? 'border-t border-divider' : ''} ${!isCurrentMonth ? 'bg-default-50' : ''} ${isToday ? 'bg-primary/5' : ''}`}
+                            className={`min-h-24 p-1 ${i % 7 > 0 ? 'border-l border-divider' : ''} ${!isFirstRow ? 'border-t border-divider' : ''} ${!isCurrentMonth ? 'bg-default-50' : ''} ${isToday ? 'bg-primary/5' : ''}`}
                         >
                             <div className={`text-[10px] text-center mb-0.5 ${isToday ? 'bg-primary text-white rounded-full w-4 h-4 flex items-center justify-center mx-auto' : ''} ${!isCurrentMonth ? 'text-default-300' : 'text-default-600'}`}>
                                 {date.getDate()}
