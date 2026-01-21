@@ -49,7 +49,7 @@ export function GoogleAuthButton({ onAuthChange }: GoogleAuthButtonProps) {
     const handleSignOut = async () => {
         setIsLoading(true);
         try {
-            await signOut({ callbackUrl: window.location.href });
+            await signOut({ callbackUrl: "/" });
             onAuthChange?.(false);
         } catch (error) {
             console.error("Error signing out:", error);
@@ -124,7 +124,7 @@ export function GoogleAuthCompact() {
                 size="sm"
                 isBordered
                 className="cursor-pointer"
-                onClick={() => signOut()}
+                onClick={() => signOut({ callbackUrl: "/" })}
             />
         );
     }

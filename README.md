@@ -6,7 +6,8 @@ This is a starter template for building AI agents using [strands](https://strand
 
 - Node.js 20+ 
 - Python 3.12+
-- Google AI API Key (for the strands agent)
+- AWS Account with Bedrock access configured
+- AWS Credentials (via environment variables, ~/.aws/credentials, or IAM role)
 - Any of the following package managers:
   - pnpm (recommended)
   - npm
@@ -34,16 +35,33 @@ bun install
 
 > **Note:** Installing the package dependencies will also install the agent's python dependencies via the `install:agent` script.
 
-2. Set up your Google AI API key:
+2. Set up your AWS credentials for Bedrock:
+
+You can configure AWS credentials in one of the following ways:
+
+**Option 1: Environment Variables**
 ```bash
-export GOOGLE_API_KEY="your-google-api-key-here"
+export AWS_ACCESS_KEY_ID="your-access-key-id"
+export AWS_SECRET_ACCESS_KEY="your-secret-access-key"
+export AWS_REGION="us-east-1"  # or your preferred region
 ```
 
-or create a `.env` file.
-
+**Option 2: AWS Credentials File**
 ```bash
-echo "GOOGLE_API_KEY=your-google-api-key-here" > agent/.env
+aws configure
 ```
+
+**Option 3: Create a `.env.local` file**
+```bash
+AWS_ACCESS_KEY_ID=your-access-key-id
+AWS_SECRET_ACCESS_KEY=your-secret-access-key
+AWS_REGION=us-east-1
+BEDROCK_MODEL=claude-3-haiku  # Optional: choose your model
+```
+
+**Note:** Make sure your AWS credentials have the following IAM permissions:
+- `bedrock:InvokeModel`
+- `bedrock:InvokeModelWithResponseStream`
 
 3. Start the development server:
 ```bash
@@ -99,8 +117,17 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ### Agent Connection Issues
 If you see "I'm having trouble connecting to my tools", make sure:
 1. The strands agent is running on port 8000
-2. Your Google AI API key is set correctly
-3. Both servers started successfully
+2. Your AWS credentials are configured correctly (check environment variables or ~/.aws/credentials)
+3. Your AWS account has access to the Bedrock models you're trying to use
+4. The AWS region you're using has the requested model available
+5. Both servers started successfully
+
+### AWS Bedrock Issues
+If you encounter errors related to AWS Bedrock:
+1. Verify your AWS credentials are valid: `aws sts get-caller-identity`
+2. Check that the model is enabled in your AWS Bedrock console
+3. Ensure your IAM user/role has the required Bedrock permissions
+4. Verify the region matches where the model is available
 
 ### Python Dependencies
 If you encounter Python import errors:

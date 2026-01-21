@@ -16,7 +16,7 @@ export function AuthGuard({ children, fallback }: AuthGuardProps) {
 
     useEffect(() => {
         if (status === "unauthenticated") {
-            router.push("/auth/signin");
+            router.push("/auth/signin?callbackUrl=/app");
         }
     }, [status, router]);
 

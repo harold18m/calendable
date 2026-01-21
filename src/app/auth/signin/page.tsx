@@ -38,7 +38,7 @@ function CalendarIcon() {
 
 function SignInContent() {
     const searchParams = useSearchParams();
-    const callbackUrl = searchParams.get("callbackUrl") || "/";
+    const callbackUrl = searchParams.get("callbackUrl") || "/app";
     const error = searchParams.get("error");
 
     const handleGoogleSignIn = () => {

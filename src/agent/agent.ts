@@ -97,11 +97,18 @@ IMPORTANTE: El access_token para las herramientas de calendario te será proporc
 
 // Create the Bedrock model
 const modelId = AVAILABLE_MODELS[CURRENT_MODEL as keyof typeof AVAILABLE_MODELS] || AVAILABLE_MODELS["claude-sonnet-4"];
-console.log(`🤖 Usando modelo: ${CURRENT_MODEL} (${modelId})`);
+const region = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || "us-east-1";
+
+// Verificar que las credenciales de AWS estén disponibles
+if (!process.env.AWS_ACCESS_KEY_ID && !process.env.AWS_PROFILE) {
+    console.warn("⚠️  Advertencia: No se encontraron credenciales de AWS en variables de entorno.");
+    console.warn("   El SDK intentará usar credenciales de ~/.aws/credentials o IAM roles.");
+}
 
 const model = new BedrockModel({
     modelId,
     temperature: 0.3,
+    region: region,
 });
 
 // Create the agent with tools
