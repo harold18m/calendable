@@ -18,6 +18,15 @@ import {
 } from "@heroui/react";
 import { useRef, useEffect, useState, FormEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { 
+  saveChat, 
+  loadChats, 
+  createChat, 
+  addMessageToChat,
+  deleteChat,
+  type Chat,
+  type ChatMessage 
+} from "@/lib/chat-storage";
 
 interface Message {
   id: string;
@@ -36,15 +45,39 @@ interface PreviewEvent {
 }
 
 // Detectar si un mensaje del asistente contiene una propuesta de rutina
+// Debe ser más específico para no detectar preguntas como propuestas
 const isRoutineProposal = (content: string): boolean => {
-  const keywords = [
-    "propongo", "propuesta", "confirma", "¿te parece", "¿quieres que",
-    "crear el evento", "crear los eventos", "agendar", "programar",
-    "lunes", "martes", "miércoles", "jueves", "viernes",
-    "frecuencia", "duración", "horario"
-  ];
   const lowerContent = content.toLowerCase();
-  return keywords.filter(k => lowerContent.includes(k)).length >= 2;
+  
+  // Palabras clave que indican una propuesta (no pregunta)
+  const proposalKeywords = [
+    "propongo", "propuesta", "te propongo", "propongo crear",
+    "crear el evento", "crear los eventos", "voy a crear",
+    "agendar", "programar", "programaré", "agendaré"
+  ];
+  
+  // Palabras clave que indican que es solo una pregunta (NO propuesta)
+  const questionKeywords = [
+    "¿cuánto", "¿qué", "¿cuál", "¿cuándo", "¿dónde", "¿cómo",
+    "necesito saber", "dime", "cuéntame", "información",
+    "qué prefieres", "qué te parece mejor", "qué horario",
+    "qué días", "qué duración"
+  ];
+  
+  // Si contiene palabras de pregunta, NO es una propuesta
+  const isQuestion = questionKeywords.some(k => lowerContent.includes(k));
+  if (isQuestion) {
+    return false;
+  }
+  
+  // Debe contener palabras de propuesta Y detalles específicos (días, horarios, etc.)
+  const hasProposalKeyword = proposalKeywords.some(k => lowerContent.includes(k));
+  const hasDetails = /(lunes|martes|miércoles|jueves|viernes|sábado|domingo|\d{1,2}:\d{2}|hora|minutos?|días?)/i.test(content);
+  
+  // También debe pedir confirmación explícita
+  const asksConfirmation = /(confirma|¿te parece|¿quieres que|¿está bien|¿de acuerdo)/i.test(content);
+  
+  return hasProposalKeyword && (hasDetails || asksConfirmation);
 };
 
 // Detectar si la respuesta indica que se crearon eventos
@@ -160,6 +193,36 @@ export default function AppPage() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [viewMode, setViewMode] = useState<"WEEK" | "MONTH" | "DAY">("WEEK");
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentChatId, setCurrentChatId] = useState<string | null>(null);
+  const chatInitializedRef = useRef(false);
+
+  // Inicializar chat desde localStorage al cargar
+  useEffect(() => {
+    if (!session?.user?.email || chatInitializedRef.current) return;
+    
+    const userId = session.user.email;
+    const chats = loadChats(userId);
+    
+    // Si hay chats, cargar el más reciente
+    if (chats.length > 0) {
+      const latestChat = chats[0];
+      setCurrentChatId(latestChat.id);
+      setMessages(latestChat.messages.map((msg) => ({
+        id: msg.id,
+        role: msg.role,
+        content: msg.content,
+        isRoutineProposal: msg.isRoutineProposal,
+        confirmed: msg.confirmed,
+      })));
+      setShowWelcome(false);
+    } else {
+      // Crear un nuevo chat si no hay ninguno
+      const newChat = createChat(userId);
+      setCurrentChatId(newChat.id);
+    }
+    
+    chatInitializedRef.current = true;
+  }, [session?.user?.email]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -176,6 +239,29 @@ export default function AppPage() {
     }
   }, [messages.length]);
 
+  // Persistir mensajes automáticamente cuando cambian
+  useEffect(() => {
+    if (!session?.user?.email || !currentChatId || messages.length === 0) return;
+    
+    const userId = session.user.email;
+    const chats = loadChats(userId);
+    const currentChat = chats.find((c) => c.id === currentChatId);
+    
+    if (currentChat) {
+      // Actualizar mensajes del chat
+      currentChat.messages = messages.map((msg) => ({
+        id: msg.id,
+        role: msg.role,
+        content: msg.content,
+        isRoutineProposal: msg.isRoutineProposal,
+        confirmed: msg.confirmed,
+        timestamp: Date.now(),
+      }));
+      currentChat.updatedAt = Date.now();
+      saveChat(userId, currentChat);
+    }
+  }, [messages, currentChatId, session?.user?.email]);
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
@@ -187,10 +273,24 @@ export default function AppPage() {
     };
 
     setMessages((prev) => [...prev, userMessage]);
+    
+    // Persistir mensaje del usuario en localStorage
+    if (session?.user?.email && currentChatId) {
+      addMessageToChat(session.user.email, currentChatId, {
+        id: userMessage.id,
+        role: userMessage.role,
+        content: userMessage.content,
+      });
+    }
+    
     setInput("");
     setInputRows(1);
     if (textareaRef.current) {
-      textareaRef.current.style.height = '44px';
+      textareaRef.current.style.height = '48px';
+      // Mantener el focus después de enviar para mejor UX
+      setTimeout(() => {
+        textareaRef.current?.focus();
+      }, 100);
     }
     setIsLoading(true);
     setError(null);
@@ -204,6 +304,10 @@ export default function AppPage() {
             role: m.role,
             content: m.content,
           })),
+          calendarContext: {
+            viewMode: viewMode,
+            currentDate: currentDate.toISOString().split("T")[0],
+          },
         }),
       });
 
@@ -228,6 +332,17 @@ export default function AppPage() {
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
+
+      // Persistir mensajes en localStorage
+      if (session?.user?.email && currentChatId) {
+        addMessageToChat(session.user.email, currentChatId, {
+          id: assistantMessage.id,
+          role: assistantMessage.role,
+          content: assistantMessage.content,
+          isRoutineProposal: assistantMessage.isRoutineProposal,
+          confirmed: assistantMessage.confirmed,
+        });
+      }
 
       // Si es una propuesta, generar eventos preview
       if (isProposal) {
@@ -261,8 +376,8 @@ export default function AppPage() {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
       const scrollHeight = textareaRef.current.scrollHeight;
-      const lineHeight = 24; // Altura aproximada de una línea
-      const minHeight = 44; // Altura mínima
+      const lineHeight = 20; // Altura de línea ajustada
+      const minHeight = 48; // Altura mínima mejorada
       const maxHeight = lineHeight * 6; // Máximo 6 líneas
       const newHeight = Math.min(Math.max(scrollHeight, minHeight), maxHeight);
       textareaRef.current.style.height = `${newHeight}px`;
@@ -374,6 +489,22 @@ export default function AppPage() {
   };
 
   const goToToday = () => setCurrentDate(new Date());
+
+  // Eliminar conversación actual
+  const handleDeleteConversation = () => {
+    if (!session?.user?.email || !currentChatId) return;
+    
+    if (confirm("¿Estás seguro de que quieres eliminar esta conversación?")) {
+      deleteChat(session.user.email, currentChatId);
+      
+      // Crear un nuevo chat
+      const newChat = createChat(session.user.email);
+      setCurrentChatId(newChat.id);
+      setMessages([]);
+      setPreviewEvents([]);
+      setShowWelcome(true);
+    }
+  };
 
   // Formatear fecha actual para mostrar en navbar
   const getCurrentPeriodDisplay = () => {
@@ -569,6 +700,26 @@ export default function AppPage() {
           >
             {isChatOpen && (
               <>
+                {/* Header del chat con botón de eliminar */}
+                {messages.length > 0 && (
+                  <div className="shrink-0 px-4 pt-3 pb-2 flex justify-end border-b border-zinc-200/80 dark:border-zinc-800/80">
+                    <Button
+                      size="sm"
+                      variant="light"
+                      color="danger"
+                      onPress={handleDeleteConversation}
+                      className="h-7 text-xs"
+                      startContent={
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                        </svg>
+                      }
+                    >
+                      Eliminar conversación
+                    </Button>
+                  </div>
+                )}
+                
                 {/* Messages Area - Estilo Lovable */}
                 <ScrollShadow className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-transparent via-zinc-50/30 to-transparent dark:via-zinc-900/30">
                       <AnimatePresence>
@@ -742,33 +893,67 @@ export default function AppPage() {
                         <div ref={messagesEndRef} />
                 </ScrollShadow>
 
-                {/* Input Area - Estilo ChatGPT */}
-                <div className="shrink-0 border-t border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900">                      
+                {/* Input Area - Mejorado para UX Conversacional */}
+                <div className="shrink-0 bg-white dark:bg-zinc-900">                      
                   <form onSubmit={handleSubmit} className="p-4">
                     <div className="relative flex flex-col">
-                      {/* Contenedor del input con botón incrustado */}
-                      <div className={`relative flex items-end gap-2 bg-zinc-100 dark:bg-zinc-800 rounded-2xl shadow-sm hover:shadow-md transition-shadow ${
+                      {/* Contenedor del input mejorado */}
+                      <div className={`relative flex items-end gap-2 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl border border-zinc-200/60 dark:border-zinc-700/60 shadow-sm hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-600 transition-all duration-200 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-400/40 ${
                         inputRows > 1 ? 'pb-2' : ''
-                      }`}>
-                        {/* Textarea */}
+                      } ${isLoading ? 'opacity-75' : ''}`}>
+                        {/* Textarea mejorado */}
                         <textarea
                           ref={textareaRef}
                           value={input}
                           onChange={handleInputChange}
                           onKeyDown={handleKeyDown}
-                          placeholder="Ask Calendable..."
+                          placeholder={messages.length === 0 ? "¿Qué quieres planificar hoy?" : "Escribe tu mensaje..."}
+                          disabled={isLoading}
                           rows={1}
-                          className="flex-1 resize-none bg-transparent border-0 outline-none text-sm font-medium placeholder:text-zinc-400 dark:placeholder:text-zinc-500 text-zinc-900 dark:text-white py-3 px-4 min-h-[44px] max-h-[144px] overflow-y-auto"
+                          className="flex-1 resize-none bg-transparent border-0 outline-none text-sm font-normal placeholder:text-zinc-400 dark:placeholder:text-zinc-500 placeholder:font-normal text-zinc-900 dark:text-zinc-100 py-3.5 px-4 min-h-[48px] max-h-[144px] overflow-y-auto focus:ring-0 disabled:cursor-not-allowed disabled:opacity-50 transition-colors scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-600 scrollbar-track-transparent"
                           style={{ 
-                            lineHeight: '24px',
-                            height: '44px'
+                            lineHeight: '22px',
+                            height: '48px',
+                            fontSize: '14px',
+                            letterSpacing: '0.01em'
                           }}
                         />
                         
-                        {/* Botón de envío - incrustado cuando hay 1 línea, abajo cuando hay múltiples */}
-                        <div className={`flex items-end pb-2 transition-all ${
+                        {/* Botones de acción */}
+                        <div className={`flex items-end gap-1.5 pb-2 transition-all ${
                           inputRows > 1 ? 'absolute right-2 bottom-2' : 'pr-2'
                         }`}>
+                          {/* Botón limpiar (solo cuando hay texto) */}
+                          {input.trim() && !isLoading && (
+                            <motion.div
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.8 }}
+                            >
+                              <Button
+                                type="button"
+                                isIconOnly
+                                variant="light"
+                                size="sm"
+                                onPress={() => {
+                                  setInput("");
+                                  setInputRows(1);
+                                  if (textareaRef.current) {
+                                    textareaRef.current.style.height = '48px';
+                                    textareaRef.current.focus();
+                                  }
+                                }}
+                                className="h-7 w-7 min-w-7 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+                                aria-label="Limpiar"
+                              >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </Button>
+                            </motion.div>
+                          )}
+                          
+                          {/* Botón de envío mejorado */}
                           <Button
                             type="submit"
                             isIconOnly
@@ -776,18 +961,44 @@ export default function AppPage() {
                             radius="full"
                             size="sm"
                             isLoading={isLoading}
-                            isDisabled={!input?.trim()}
-                            className="h-8 w-8 min-w-8 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-sm hover:shadow-md transition-all flex-shrink-0"
+                            isDisabled={!input?.trim() || isLoading}
+                            className={`h-8 w-8 min-w-8 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-sm hover:shadow-md transition-all flex-shrink-0 ${
+                              input.trim() && !isLoading ? 'scale-100' : 'scale-95'
+                            }`}
                             aria-label="Enviar mensaje"
                           >
                             {!isLoading && (
                               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18m-8.5-8.5h17" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" />
                               </svg>
                             )}
                           </Button>
                         </div>
                       </div>
+                      
+                      {/* Indicador de estado (opcional) */}
+                      {isLoading && (
+                        <div className="mt-2 px-4 flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+                          <Spinner size="sm" color="primary" />
+                          <span>Calendable está pensando...</span>
+                        </div>
+                      )}
+                      
+                      {/* Hint de atajos de teclado */}
+                      {!input.trim() && !isLoading && messages.length > 0 && (
+                        <div className="mt-2 px-4 flex items-center gap-4 text-xs text-zinc-400 dark:text-zinc-500">
+                          <span className="flex items-center gap-1">
+                            <kbd className="px-1.5 py-0.5 bg-zinc-200 dark:bg-zinc-700 rounded text-[10px]">Enter</kbd>
+                            <span>para enviar</span>
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <kbd className="px-1.5 py-0.5 bg-zinc-200 dark:bg-zinc-700 rounded text-[10px]">Shift</kbd>
+                            <span>+</span>
+                            <kbd className="px-1.5 py-0.5 bg-zinc-200 dark:bg-zinc-700 rounded text-[10px]">Enter</kbd>
+                            <span>para nueva línea</span>
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </form>
                 </div>

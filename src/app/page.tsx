@@ -46,6 +46,31 @@ export default function LandingPage() {
   const [inputRows, setInputRows] = useState(1);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Cargar mensaje pendiente del localStorage al montar
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const pendingMessage = localStorage.getItem("calendable-pending-message");
+      if (pendingMessage) {
+        setInput(pendingMessage);
+        // Ajustar altura del textarea
+        setTimeout(() => {
+          if (textareaRef.current) {
+            textareaRef.current.style.height = 'auto';
+            const scrollHeight = textareaRef.current.scrollHeight;
+            const lineHeight = 24;
+            const minHeight = 56;
+            const maxHeight = lineHeight * 6;
+            const newHeight = Math.min(Math.max(scrollHeight, minHeight), maxHeight);
+            textareaRef.current.style.height = `${newHeight}px`;
+            
+            const hasMultipleLines = scrollHeight > minHeight || pendingMessage.includes('\n');
+            setInputRows(hasMultipleLines ? 2 : 1);
+          }
+        }, 100);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     if (status === "authenticated") {
       router.push("/app");
@@ -59,6 +84,11 @@ export default function LandingPage() {
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     setInput(value);
+    
+    // Persistir el input en localStorage
+    if (typeof window !== "undefined") {
+      localStorage.setItem("calendable-pending-message", value);
+    }
     
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
@@ -104,15 +134,15 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-950 via-purple-950/40 to-pink-950/60 dark:from-slate-950 dark:via-purple-950/50 dark:to-pink-950/70">
+    <div className="min-h-screen flex flex-col bg-white dark:bg-zinc-900">
       {/* Navbar */}
-      <nav className="h-16 shrink-0 bg-transparent backdrop-blur-sm border-b border-white/5">
+      <nav className="h-16 shrink-0 bg-white dark:bg-zinc-900">
         <div className="h-full px-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
+            <div className="w-8 h-8 rounded-lg bg-linear-to-br from-blue-600 to-blue-700 flex items-center justify-center">
               <CalendarIcon />
             </div>
-            <h1 className="text-lg font-semibold text-white">
+            <h1 className="text-lg font-semibold text-zinc-900 dark:text-white">
               Calendable
             </h1>
           </div>
@@ -122,14 +152,14 @@ export default function LandingPage() {
               variant="light"
               size="sm"
               onPress={handleGetStarted}
-              className="text-white/90 hover:text-white hover:bg-white/10"
+              className="text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white"
             >
               Log in
             </Button>
             <Button
               size="sm"
               onPress={handleGetStarted}
-              className="bg-white text-slate-900 hover:bg-zinc-100 font-medium shadow-lg shadow-white/10"
+              className="bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-100 font-medium"
               startContent={<GoogleIcon />}
             >
               Get started
@@ -139,7 +169,7 @@ export default function LandingPage() {
       </nav>
 
       {/* Main Content - Centered */}
-      <div className="flex-1 flex flex-col items-center justify-center px-4 pb-20">
+      <div className="flex-1 flex flex-col items-center justify-center px-4 pb-20 bg-gradient-to-b from-white via-zinc-50/50 to-white dark:from-zinc-900 dark:via-zinc-950/50 dark:to-zinc-900">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -147,12 +177,12 @@ export default function LandingPage() {
           className="w-full max-w-4xl"
         >
           {/* Heading */}
-          <h2 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-center bg-gradient-to-r from-white via-blue-100 to-purple-100 bg-clip-text text-transparent mb-4 drop-shadow-lg">
+          <h2 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-center text-zinc-900 dark:text-white mb-4">
             Planifica tu vida
           </h2>
           
           {/* Subheading */}
-          <p className="text-xl sm:text-2xl text-center text-white/90 mb-12 font-medium">
+          <p className="text-xl sm:text-2xl text-center text-zinc-600 dark:text-zinc-400 mb-12 font-medium">
             Organiza tu calendario hablando con IA
           </p>
 
@@ -160,23 +190,23 @@ export default function LandingPage() {
           <form onSubmit={handleSubmit} className="w-full">
             <div className="relative">
               {/* Contenedor del input grande */}
-              <div className={`relative flex items-end gap-2 bg-white/10 dark:bg-white/5 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 ${
+              <div className={`relative flex items-end gap-2 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl border border-zinc-200/60 dark:border-zinc-700/60 shadow-lg hover:shadow-xl hover:border-zinc-300 dark:hover:border-zinc-600 transition-all ${
                 inputRows > 1 ? 'pb-3' : ''
               }`}>
                 {/* Botón + a la izquierda */}
                 <div className="pl-4 pb-3">
-                  <Button
+                  {/* <Button
                     type="button"
                     isIconOnly
                     variant="light"
                     size="sm"
-                    className="h-8 w-8 min-w-8 text-white/70 hover:text-white hover:bg-white/10"
+                    className="h-8 w-8 min-w-8 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700/50"
                     aria-label="Acciones rápidas"
                   >
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                     </svg>
-                  </Button>
+                  </Button> */}
                 </div>
 
                 {/* Textarea */}
@@ -187,7 +217,7 @@ export default function LandingPage() {
                   onKeyDown={handleKeyDown}
                   placeholder="Pregunta a Calendable qué quieres planificar..."
                   rows={1}
-                  className="flex-1 resize-none bg-transparent border-0 outline-none text-base font-medium placeholder:text-white/50 text-white py-4 min-h-[56px] max-h-[200px] overflow-y-auto"
+                  className="flex-1 resize-none bg-transparent border-0 outline-none text-base font-normal placeholder:text-zinc-400 dark:placeholder:text-zinc-500 text-zinc-900 dark:text-zinc-100 py-4 min-h-[56px] max-h-[200px] overflow-y-auto focus:ring-0"
                   style={{ 
                     lineHeight: '28px',
                     height: '56px'
@@ -199,32 +229,32 @@ export default function LandingPage() {
                   inputRows > 1 ? 'absolute right-2 bottom-3' : ''
                 }`}>
                   {/* Botón Chat */}
-                  <Button
+                  {/* <Button
                     type="button"
                     isIconOnly
                     variant="light"
                     size="sm"
-                    className="h-8 w-8 min-w-8 text-white/70 hover:text-white hover:bg-white/10"
+                    className="h-8 w-8 min-w-8 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700/50"
                     aria-label="Chat"
                   >
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
                     </svg>
-                  </Button>
+                  </Button> */}
 
                   {/* Botón Audio */}
-                  <Button
+                  {/* <Button
                     type="button"
                     isIconOnly
                     variant="light"
                     size="sm"
-                    className="h-8 w-8 min-w-8 text-white/70 hover:text-white hover:bg-white/10"
+                    className="h-8 w-8 min-w-8 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700/50"
                     aria-label="Voz"
                   >
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
                     </svg>
-                  </Button>
+                  </Button> */}
 
                   {/* Botón Enviar */}
                   <Button
@@ -234,11 +264,11 @@ export default function LandingPage() {
                     radius="full"
                     size="sm"
                     isDisabled={!input?.trim()}
-                    className="h-8 w-8 min-w-8 bg-white text-slate-900 hover:bg-zinc-100 shadow-lg shadow-white/20 hover:shadow-xl transition-all flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="h-8 w-8 min-w-8 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-md hover:shadow-lg transition-all flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
                     aria-label="Enviar mensaje"
                   >
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18m-8.5-8.5h17" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" />
                     </svg>
                   </Button>
                 </div>

@@ -480,6 +480,245 @@ export const suggestNextAction = new FunctionTool({
     },
 });
 
+// Suggest free time activities
+export const suggestFreeTimeActivities = new FunctionTool({
+    name: "suggest_free_time_activities",
+    description: "Analyze free time slots in the calendar and suggest appropriate activities based on available time, time of day, and user preferences. Use this when the user asks what to do, has free time, or wants suggestions.",
+    inputSchema: {
+        type: "object",
+        properties: {
+            date: { 
+                type: "string", 
+                description: "Date to analyze in YYYY-MM-DD format. If not provided, uses today." 
+            },
+            duration_minutes: { 
+                type: "number", 
+                description: "Minimum duration in minutes for the activity. Default: 30" 
+            },
+            access_token: { 
+                type: "string", 
+                description: "Google OAuth access token" 
+            },
+        },
+        required: ["access_token"],
+    },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    callback: async (input: any) => {
+        try {
+            const calendar = getCalendarClient(input.access_token);
+            const targetDate = input.date ? new Date(input.date) : new Date();
+            const duration = input.duration_minutes || 30;
+            
+            // Obtener eventos del día
+            const startOfDay = new Date(targetDate);
+            startOfDay.setHours(0, 0, 0, 0);
+            const endOfDay = new Date(targetDate);
+            endOfDay.setHours(23, 59, 59, 999);
+            
+            const response = await calendar.events.list({
+                calendarId: "primary",
+                timeMin: startOfDay.toISOString(),
+                timeMax: endOfDay.toISOString(),
+                maxResults: 50,
+                singleEvents: true,
+                orderBy: "startTime",
+            });
+            
+            const events = response.data.items || [];
+            const now = new Date();
+            const currentHour = now.getHours();
+            
+            // Analizar slots libres
+            const freeSlots: Array<{ start: Date; end: Date; duration_minutes: number }> = [];
+            const busyTimes: Array<{ start: Date; end: Date }> = events
+                .filter(e => e.start?.dateTime)
+                .map(e => ({
+                    start: new Date(e.start!.dateTime!),
+                    end: new Date(e.end!.dateTime!),
+                }))
+                .sort((a, b) => a.start.getTime() - b.start.getTime());
+            
+            // Encontrar slots libres
+            let lastEnd = new Date(startOfDay);
+            lastEnd.setHours(6, 0, 0, 0); // Empezar desde las 6 AM
+            
+            for (const busy of busyTimes) {
+                if (busy.start > lastEnd) {
+                    const slotDuration = (busy.start.getTime() - lastEnd.getTime()) / (1000 * 60);
+                    if (slotDuration >= duration) {
+                        freeSlots.push({
+                            start: new Date(lastEnd),
+                            end: new Date(busy.start),
+                            duration_minutes: Math.floor(slotDuration),
+                        });
+                    }
+                }
+                lastEnd = busy.end > lastEnd ? busy.end : lastEnd;
+            }
+            
+            // Slot final del día (hasta las 22:00)
+            const endOfAvailable = new Date(targetDate);
+            endOfAvailable.setHours(22, 0, 0, 0);
+            if (lastEnd < endOfAvailable) {
+                const slotDuration = (endOfAvailable.getTime() - lastEnd.getTime()) / (1000 * 60);
+                if (slotDuration >= duration) {
+                    freeSlots.push({
+                        start: new Date(lastEnd),
+                        end: new Date(endOfAvailable),
+                        duration_minutes: Math.floor(slotDuration),
+                    });
+                }
+            }
+            
+            // Generar sugerencias basadas en tiempo disponible y hora del día
+            const suggestions: string[] = [];
+            
+            for (const slot of freeSlots) {
+                const slotHour = slot.start.getHours();
+                const slotDuration = slot.duration_minutes;
+                
+                let activitySuggestions: string[] = [];
+                
+                // Sugerencias basadas en hora del día
+                if (slotHour >= 6 && slotHour < 12) {
+                    // Mañana
+                    if (slotDuration >= 60) {
+                        activitySuggestions.push("Ejercicio matutino", "Meditación o yoga", "Lectura", "Estudio o trabajo personal");
+                    } else {
+                        activitySuggestions.push("Caminata corta", "Estiramientos", "Revisar emails", "Planificar el día");
+                    }
+                } else if (slotHour >= 12 && slotHour < 18) {
+                    // Tarde
+                    if (slotDuration >= 60) {
+                        activitySuggestions.push("Almuerzo tranquilo", "Ejercicio", "Tiempo de ocio", "Proyecto personal");
+                    } else {
+                        activitySuggestions.push("Descanso breve", "Caminata", "Llamada personal", "Organización");
+                    }
+                } else {
+                    // Noche
+                    if (slotDuration >= 60) {
+                        activitySuggestions.push("Cena relajada", "Tiempo con familia/amigos", "Hobby personal", "Relajación");
+                    } else {
+                        activitySuggestions.push("Descanso", "Lectura ligera", "Preparar para mañana");
+                    }
+                }
+                
+                // Añadir sugerencias específicas según duración
+                if (slotDuration >= 90) {
+                    activitySuggestions.push("Actividad extendida (deporte, proyecto, etc.)");
+                }
+                
+                const timeStr = slot.start.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+                suggestions.push(`${timeStr} (${slotDuration} min): ${activitySuggestions.slice(0, 3).join(", ")}`);
+            }
+            
+            return JSON.stringify({
+                date: targetDate.toISOString().split("T")[0],
+                free_slots_count: freeSlots.length,
+                free_slots: freeSlots.map(s => ({
+                    start: s.start.toISOString(),
+                    end: s.end.toISOString(),
+                    duration_minutes: s.duration_minutes,
+                })),
+                suggestions: suggestions,
+                has_free_time: freeSlots.length > 0,
+                message: freeSlots.length > 0 
+                    ? `Tienes ${freeSlots.length} períodos libres disponibles. Aquí tienes algunas sugerencias:`
+                    : "Tu día está bastante ocupado. Considera reorganizar algunos eventos si necesitas tiempo libre.",
+            });
+        } catch (error) {
+            return JSON.stringify({ error: `Error al analizar tiempo libre: ${error}` });
+        }
+    },
+});
+
+// Get visible calendar context (what the user is currently viewing)
+export const getVisibleCalendarContext = new FunctionTool({
+    name: "get_visible_calendar_context",
+    description: "Get information about what calendar view the user is currently viewing (day/week/month) and the date range being displayed. Use this to understand what the user sees on their screen.",
+    inputSchema: {
+        type: "object",
+        properties: {
+            view_mode: { 
+                type: "string", 
+                description: "Current view mode: 'DAY', 'WEEK', or 'MONTH'",
+                enum: ["DAY", "WEEK", "MONTH"]
+            },
+            current_date: { 
+                type: "string", 
+                description: "The date currently being displayed in ISO format (YYYY-MM-DD)" 
+            },
+            access_token: { 
+                type: "string", 
+                description: "Google OAuth access token" 
+            },
+        },
+        required: ["view_mode", "current_date", "access_token"],
+    },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    callback: async (input: any) => {
+        try {
+            const calendar = getCalendarClient(input.access_token);
+            const currentDate = new Date(input.current_date);
+            
+            let startDate: Date;
+            let endDate: Date;
+            let description: string;
+            
+            if (input.view_mode === "DAY") {
+                startDate = new Date(currentDate);
+                endDate = new Date(currentDate);
+                endDate.setDate(endDate.getDate() + 1);
+                description = `Vista de día: ${currentDate.toLocaleDateString("es-ES", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}`;
+            } else if (input.view_mode === "WEEK") {
+                // Calcular inicio y fin de semana
+                const dayOfWeek = currentDate.getDay();
+                const diff = currentDate.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Ajustar para que lunes sea día 1
+                startDate = new Date(currentDate.setDate(diff));
+                endDate = new Date(startDate);
+                endDate.setDate(endDate.getDate() + 6);
+                description = `Vista de semana: ${startDate.toLocaleDateString("es-ES", { day: "numeric", month: "short" })} - ${endDate.toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" })}`;
+            } else {
+                // MONTH
+                startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+                endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+                description = `Vista de mes: ${currentDate.toLocaleDateString("es-ES", { month: "long", year: "numeric" })}`;
+            }
+            
+            // Obtener eventos en el rango visible
+            const response = await calendar.events.list({
+                calendarId: "primary",
+                timeMin: startDate.toISOString(),
+                timeMax: endDate.toISOString(),
+                maxResults: 50,
+                singleEvents: true,
+                orderBy: "startTime",
+            });
+            
+            const events = response.data.items || [];
+            const formattedEvents = events.map((event) => ({
+                title: event.summary || "Sin título",
+                start_time: event.start?.dateTime || event.start?.date,
+                end_time: event.end?.dateTime || event.end?.date,
+            }));
+            
+            return JSON.stringify({
+                view_mode: input.view_mode,
+                current_date: input.current_date,
+                date_range: {
+                    start: startDate.toISOString().split("T")[0],
+                    end: endDate.toISOString().split("T")[0],
+                },
+                description,
+                events_visible: formattedEvents,
+                event_count: formattedEvents.length,
+            });
+        } catch (error) {
+            return JSON.stringify({ error: `Error al obtener contexto del calendario: ${error}` });
+        }
+    },
+});
+
 // Export all tools
 export const calendarTools = [
     getCurrentDateTime,
@@ -491,4 +730,6 @@ export const calendarTools = [
     moveCalendarEvent,
     getUpcomingEvents,
     suggestNextAction,
+    suggestFreeTimeActivities,
+    getVisibleCalendarContext,
 ];

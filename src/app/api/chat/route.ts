@@ -40,22 +40,63 @@ async function invokeWithRetry(message: string, maxRetries = 3): Promise<string>
     throw lastError;
 }
 
+// Construir el historial de conversación como contexto
+function buildConversationContext(messages: Array<{ role: string; content: string }>): string {
+    // Filtrar solo mensajes de usuario y asistente, excluyendo el último mensaje del usuario
+    const conversationHistory = messages
+        .filter((msg, index) => {
+            // Incluir todos los mensajes excepto el último (que se enviará por separado)
+            return index < messages.length - 1;
+        })
+        .map((msg) => {
+            const role = msg.role === "user" ? "Usuario" : "Asistente";
+            return `${role}: ${msg.content}`;
+        })
+        .join("\n\n");
+
+    return conversationHistory;
+}
+
 export async function POST(req: Request) {
     // Get session to extract access token
     const session = await getServerSession(authOptions);
     const accessToken = (session as { accessToken?: string })?.accessToken;
 
-    const { messages } = await req.json();
+    const { messages, calendarContext } = await req.json();
 
-    // Build conversation with context including access token
+    // Obtener el último mensaje del usuario
     const lastMessage = messages[messages.length - 1];
-    const userMessage = accessToken
-        ? `[Context: access_token=${accessToken}]\n\n${lastMessage.content}`
-        : lastMessage.content;
+    
+    // Construir el contexto de la conversación
+    const conversationHistory = buildConversationContext(messages);
+    
+    // Construir el mensaje completo con historial y contexto
+    let fullMessage = "";
+    
+    // Añadir historial si existe
+    if (conversationHistory) {
+        fullMessage += `[Historial de conversación anterior]\n${conversationHistory}\n\n`;
+    }
+    
+    // Añadir contexto del calendario visible si está disponible
+    if (calendarContext && calendarContext.viewMode && calendarContext.currentDate) {
+        fullMessage += `[Contexto del calendario visible]\n`;
+        fullMessage += `El usuario está viendo la vista: ${calendarContext.viewMode}\n`;
+        fullMessage += `Fecha actual mostrada: ${calendarContext.currentDate}\n`;
+        fullMessage += `Puedes usar get_visible_calendar_context para obtener más detalles sobre los eventos visibles.\n\n`;
+    }
+    
+    // Añadir contexto del access token
+    if (accessToken) {
+        fullMessage += `[Context: access_token=${accessToken}]\n\n`;
+    }
+    
+    // Añadir el mensaje actual del usuario
+    fullMessage += lastMessage.content;
 
     try {
         // Use Strands agent with retry logic
-        const result = await invokeWithRetry(userMessage);
+        const result = await invokeWithRetry(fullMessage);
 
         // Return response as text
         return new Response(result, {
