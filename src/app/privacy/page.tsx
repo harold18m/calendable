@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Card, CardBody } from "@heroui/react";
 
 export const metadata: Metadata = {
   title: "Política de Privacidad - Calendable",
@@ -10,8 +9,8 @@ export default function PrivacyPolicyPage() {
   return (
     <div className="min-h-screen bg-white dark:bg-zinc-900 py-12 px-4">
       <div className="max-w-4xl mx-auto">
-        <Card className="border border-zinc-200 dark:border-zinc-800">
-          <CardBody className="p-8">
+        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-sm">
+          <div className="p-8">
             <h1 className="text-4xl font-bold mb-6 text-zinc-900 dark:text-white">
               Política de Privacidad
             </h1>
@@ -123,8 +122,8 @@ export default function PrivacyPolicyPage() {
                 </p>
               </section>
             </div>
-          </CardBody>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   );
