@@ -7,6 +7,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useRef, FormEvent } from "react";
 import { motion } from "framer-motion";
+import Link from "next/link";
 
 function GoogleIcon() {
   return (
@@ -31,10 +32,19 @@ function GoogleIcon() {
   );
 }
 
-function CalendarIcon() {
+function HeartIcon() {
   return (
-    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
+    <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+        fill="url(#heartGradient)"
+      />
+      <defs>
+        <linearGradient id="heartGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#3b82f6" stopOpacity="1" />
+          <stop offset="100%" stopColor="#6b7280" stopOpacity="1" />
+        </linearGradient>
+      </defs>
     </svg>
   );
 }
@@ -139,9 +149,7 @@ export default function LandingPage() {
       <nav className="h-16 shrink-0 bg-white dark:bg-zinc-900">
         <div className="h-full px-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-linear-to-br from-blue-600 to-blue-700 flex items-center justify-center">
-              <CalendarIcon />
-            </div>
+            <HeartIcon />
             <h1 className="text-lg font-semibold text-zinc-900 dark:text-white">
               Calendable
             </h1>
@@ -277,6 +285,25 @@ export default function LandingPage() {
           </form>
         </motion.div>
       </div>
+
+      {/* Footer */}
+      <footer className="w-full py-6 px-6 bg-white dark:bg-zinc-900">
+        <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 text-sm text-zinc-600 dark:text-zinc-400">
+          <Link 
+            href="/privacy" 
+            className="hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors"
+          >
+            Política de Privacidad
+          </Link>
+          <span className="hidden sm:inline">•</span>
+          <Link 
+            href="/terms" 
+            className="hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors"
+          >
+            Términos de Servicio
+          </Link>
+        </div>
+      </footer>
     </div>
   );
 }
