@@ -195,6 +195,18 @@ export default function AppPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const chatInitializedRef = useRef(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileView, setMobileView] = useState<"chat" | "calendar">("chat");
+
+  // Detectar si es móvil
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Inicializar chat desde localStorage al cargar
   useEffect(() => {
@@ -376,9 +388,10 @@ export default function AppPage() {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
       const scrollHeight = textareaRef.current.scrollHeight;
-      const lineHeight = 20; // Altura de línea ajustada
-      const minHeight = 48; // Altura mínima mejorada
-      const maxHeight = lineHeight * 6; // Máximo 6 líneas
+      const isMobileView = window.innerWidth < 768;
+      const lineHeight = isMobileView ? 20 : 20;
+      const minHeight = isMobileView ? 36 : 48;
+      const maxHeight = isMobileView ? Math.max(30 * window.innerHeight / 100, 64) : lineHeight * 6;
       const newHeight = Math.min(Math.max(scrollHeight, minHeight), maxHeight);
       textareaRef.current.style.height = `${newHeight}px`;
       
@@ -532,20 +545,20 @@ export default function AppPage() {
     <AuthGuard>
       <main className="h-screen flex flex-col bg-white dark:bg-zinc-900">
         {/* Top Navbar - Estilo Lovable */}
-        <nav className="h-14 shrink-0 bg-white dark:bg-zinc-900 relative">
-          <div className="h-full px-4 flex items-center justify-between gap-4">
+        <nav className="h-14 shrink-0 bg-white dark:bg-zinc-900 relative border-b border-zinc-200/50 dark:border-zinc-800/50">
+          <div className="h-full px-3 sm:px-4 flex items-center justify-between gap-2 sm:gap-4">
             {/* Logo y nombre - siempre visible */}
-            <div className="flex items-center gap-3 shrink-0">
-              <div className="w-7 h-7 rounded-lg bg-linear-to-br from-blue-600 to-blue-700 flex items-center justify-center shrink-0">
-                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-linear-to-br from-blue-600 to-blue-700 flex items-center justify-center shrink-0">
+                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
                 </svg>
               </div>
-              <h1 className="text-base font-semibold text-zinc-900 dark:text-white shrink-0">
+              <h1 className="text-sm sm:text-base font-semibold text-zinc-900 dark:text-white shrink-0">
                 Calendable
               </h1>
-              {/* Botón para mostrar/ocultar chat - al lado del logo cuando está cerrado */}
-              {!isChatOpen && (
+              {/* Botón para mostrar/ocultar chat - solo en desktop */}
+              {!isMobile && !isChatOpen && (
                 <Button
                   isIconOnly
                   variant="light"
@@ -561,8 +574,8 @@ export default function AppPage() {
               )}
             </div>
 
-            {/* Botón para ocultar chat - alineado con el borde derecho del sidebar cuando está abierto */}
-            {isChatOpen && (
+            {/* Botón para ocultar chat - solo en desktop cuando está abierto */}
+            {!isMobile && isChatOpen && (
               <div 
                 className="absolute transition-all duration-300 ease-in-out"
                 style={{ left: '400px' }}
@@ -582,8 +595,9 @@ export default function AppPage() {
               </div>
             )}
 
-            {/* Controles del calendario */}
-            <div className="flex items-center gap-2 flex-1 min-w-0 justify-center">
+            {/* Controles del calendario - solo en desktop */}
+            {!isMobile && (
+              <div className="flex items-center gap-2 flex-1 min-w-0 justify-center">
               {/* Tabs de vista */}
               <Tabs
                 selectedKey={viewMode}
@@ -641,9 +655,20 @@ export default function AppPage() {
               <div className="ml-4 text-sm font-medium text-zinc-700 dark:text-zinc-300 truncate">
                 {getCurrentPeriodDisplay()}
               </div>
-            </div>
+              </div>
+            )}
+            
+            {/* Controles móviles - solo mostrar en móvil */}
+            {isMobile && (
+              <div className="flex items-center gap-2 flex-1 min-w-0 justify-center">
+                {/* Fecha actual - simplificada para móvil */}
+                <div className="text-xs sm:text-sm font-medium text-zinc-700 dark:text-zinc-300 truncate">
+                  {getCurrentPeriodDisplay()}
+                </div>
+              </div>
+            )}
 
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1 sm:gap-2 shrink-0">
               <ThemeToggle />
               {session?.user && (
                 <Dropdown placement="bottom-end">
@@ -693,12 +718,14 @@ export default function AppPage() {
           <motion.div
             initial={false}
             animate={{
-              width: isChatOpen ? 420 : 0,
+              width: isMobile 
+                ? (mobileView === 'chat' ? '100%' : 0)
+                : (isChatOpen ? 420 : 0),
             }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
             className="flex flex-col bg-white dark:bg-zinc-900 shrink-0 overflow-hidden"
           >
-            {isChatOpen && (
+            {((isMobile && mobileView === 'chat') || (!isMobile && isChatOpen)) && (
               <>
                 {/* Header del chat con botón de eliminar */}
                 {messages.length > 0 && (
@@ -894,8 +921,55 @@ export default function AppPage() {
                 </ScrollShadow>
 
                 {/* Input Area - Mejorado para UX Conversacional */}
-                <div className="shrink-0 bg-white dark:bg-zinc-900">                      
-                  <form onSubmit={handleSubmit} className="p-4">
+                <div className="shrink-0 bg-white dark:bg-zinc-900">
+                  {/* Vista móvil del input */}
+                  {isMobile ? (
+                    <div className="relative z-10 -mx-px flex w-[calc(100%+2px)] flex-col gap-2 rounded-t-2xl border-l border-r border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3 pb-2">
+                      <div className="relative z-10">
+                        <div className="flex w-full flex-col gap-2">
+                          <div className="flex w-full items-start justify-between gap-2">
+                            <form 
+                              id="chat-input" 
+                              onSubmit={handleSubmit}
+                              className="group flex flex-col gap-2 rounded-3xl border border-zinc-200 dark:border-zinc-800 transition-colors duration-150 ease-in-out relative w-full flex-1 border-none bg-transparent p-0"
+                            >
+                              <div className="flex flex-1 items-start gap-2">
+                                <div className="relative flex flex-1 items-center">
+                                  <textarea
+                                    ref={textareaRef}
+                                    value={input}
+                                    onChange={handleInputChange}
+                                    onKeyDown={handleKeyDown}
+                                    placeholder={messages.length === 0 ? "¿Qué quieres planificar hoy?" : "Escribe tu mensaje..."}
+                                    maxLength={50000}
+                                    disabled={isLoading}
+                                    className="flex w-full rounded-md border border-zinc-200 dark:border-zinc-800 px-2 py-1.5 transition-colors duration-150 ease-in-out placeholder:text-zinc-400 dark:placeholder:text-zinc-500 hover:border-zinc-300 dark:hover:border-zinc-700 focus-visible:border-blue-500 dark:focus-visible:border-blue-400 focus-visible:outline-none disabled:cursor-not-allowed disabled:border-zinc-200 dark:disabled:border-zinc-800 disabled:opacity-50 resize-none border-none placeholder-shown:text-ellipsis placeholder-shown:whitespace-nowrap md:text-base focus-visible:border-none focus-visible:ring-0 focus-visible:ring-offset-0 max-h-[max(30svh,4rem)] bg-transparent focus:bg-transparent flex-1 text-base"
+                                    style={{ 
+                                      height: 'auto',
+                                      minHeight: '36px',
+                                      lineHeight: '20px'
+                                    }}
+                                  />
+                                </div>
+                                <button
+                                  type="submit"
+                                  disabled={!input.trim() || isLoading}
+                                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors duration-100 ease-in-out focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500 disabled:pointer-events-none disabled:opacity-50 border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-700 h-9 w-9 rounded-full relative z-10"
+                                  style={{ opacity: input.trim() && !isLoading ? 1 : 0.5, transform: 'none' }}
+                                  aria-label="Enviar mensaje"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="shrink-0 h-4 w-4 relative z-10">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </form>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleSubmit} className="p-4">
                     <div className="relative flex flex-col">
                       {/* Contenedor del input mejorado */}
                       <div className={`relative flex items-end gap-2 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl border border-zinc-200/60 dark:border-zinc-700/60 shadow-sm hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-600 transition-all duration-200 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-400/40 ${
@@ -1001,16 +1075,86 @@ export default function AppPage() {
                       )}
                     </div>
                   </form>
+                  )}
                 </div>
               </>
             )}
           </motion.div>
 
           {/* Right Content - Calendar (Main Area) */}
-          <div className="flex-1 flex flex-col overflow-hidden relative">
+          <motion.div
+            initial={false}
+            animate={{
+              width: isMobile 
+                ? (mobileView === 'calendar' ? '100%' : 0)
+                : '100%',
+            }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="flex-1 flex flex-col overflow-hidden relative"
+          >
             {/* Calendar Content con esquinas redondeadas */}
             <div className="flex-1 flex flex-col overflow-hidden rounded-tl-2xl bg-zinc-50 dark:bg-zinc-950 shadow-sm border border-zinc-200/50 dark:border-zinc-800/50">
-              <div className="flex-1 flex flex-col overflow-hidden p-4">
+              {/* Controles de vista del calendario - solo en móvil, arriba del calendario */}
+              {isMobile && (
+                <div className="shrink-0 px-3 sm:px-4 py-2 sm:py-3 border-b border-zinc-200/50 dark:border-zinc-800/50 bg-white dark:bg-zinc-900">
+                  <div className="flex items-center justify-between gap-2">
+                    {/* Tabs de vista */}
+                    <Tabs
+                      selectedKey={viewMode}
+                      onSelectionChange={(key) => setViewMode(key as "WEEK" | "MONTH" | "DAY")}
+                      size="sm"
+                      variant="light"
+                      classNames={{
+                        tabList: "gap-1 p-0.5 bg-zinc-100 dark:bg-zinc-800 rounded-lg",
+                        tab: "h-7 px-2.5 text-xs min-w-12",
+                        cursor: "bg-white dark:bg-zinc-700 shadow-sm",
+                      }}
+                    >
+                      <Tab key="DAY" title="Día" />
+                      <Tab key="WEEK" title="Semana" />
+                      <Tab key="MONTH" title="Mes" />
+                    </Tabs>
+
+                    {/* Navegación */}
+                    <div className="flex items-center gap-1">
+                      <Button
+                        isIconOnly
+                        size="sm"
+                        variant="light"
+                        onPress={() => navigateCalendar(-1)}
+                        className="h-7 w-7 min-w-7 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
+                        aria-label="Anterior"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                        </svg>
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="flat"
+                        onPress={goToToday}
+                        className="h-7 px-2.5 text-xs min-w-0 font-medium"
+                      >
+                        Hoy
+                      </Button>
+                      <Button
+                        isIconOnly
+                        size="sm"
+                        variant="light"
+                        onPress={() => navigateCalendar(1)}
+                        className="h-7 w-7 min-w-7 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
+                        aria-label="Siguiente"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              <div className="flex-1 flex flex-col overflow-hidden p-2 sm:p-4">
                 <CalendarWithAuth
                   timezone="America/Lima"
                   onAccessTokenReady={(token) => console.log("Token listo para API")}
@@ -1026,8 +1170,42 @@ export default function AppPage() {
                 />
               </div>
             </div>
-          </div>
+          </motion.div>
         </div>
+
+        {/* Toggle móvil Chat/Calendar - fijo abajo, siempre visible en móvil */}
+        {isMobile && (
+          <div className="shrink-0 px-4 py-3 bg-white dark:bg-zinc-900">
+            <div className="relative grid h-10 w-full grid-cols-2 rounded-full bg-zinc-100 dark:bg-zinc-800 text-lg shadow-transparent" style={{ transition: 'box-shadow 0.2s ease-out', opacity: 1 }}>
+              <div 
+                className={`relative flex h-full cursor-pointer items-center justify-center rounded-full px-4 transition-all ${mobileView === 'chat' ? 'text-zinc-900 dark:text-white' : 'text-zinc-500 dark:text-zinc-400'}`}
+                data-testid="mobile-view-chat-button"
+                onClick={() => setMobileView('chat')}
+              >
+                <span className="pointer-events-none relative z-10 select-none">Chat</span>
+              </div>
+              <div 
+                className={`relative flex h-full cursor-pointer items-center justify-center rounded-full px-4 transition-all ${mobileView === 'calendar' ? 'text-zinc-900 dark:text-white' : 'text-zinc-500 dark:text-zinc-400'}`}
+                data-testid="mobile-view-calendar-button"
+                onClick={() => setMobileView('calendar')}
+              >
+                <span className="pointer-events-none relative z-10 select-none text-center">Calendar</span>
+              </div>
+              <div 
+                className="absolute inset-y-[2px] w-1/2 rounded-full bg-white dark:bg-zinc-700 shadow-md transition-all duration-200"
+                data-testid="mobile-view-pill"
+                data-view={mobileView}
+                style={{ 
+                  left: mobileView === 'chat' ? '2px' : 'calc(50% - 2px)',
+                  userSelect: 'none',
+                  touchAction: 'pan-y',
+                  transform: 'none',
+                  transformOrigin: '50% 50% 0px'
+                }}
+              />
+            </div>
+          </div>
+        )}
       </main>
     </AuthGuard>
   );

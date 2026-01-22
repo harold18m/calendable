@@ -28,17 +28,30 @@ src/
 │   │   ├── auth/      # Endpoints de autenticación (NextAuth)
 │   │   ├── calendar/  # Endpoints de calendario
 │   │   └── chat/      # Endpoint principal para el chat con el agente
+│   ├── app/           # Aplicación principal (requiere autenticación)
+│   │   └── page.tsx   # Página principal con chat y calendario
 │   ├── auth/signin/   # Página de inicio de sesión
-│   └── page.tsx       # Página principal con chat y calendario
+│   ├── privacy/       # Página de política de privacidad
+│   ├── terms/         # Página de términos de servicio
+│   ├── page.tsx       # Landing page (página pública)
+│   ├── layout.tsx     # Layout raíz con metadata y favicon
+│   ├── icon.svg       # Favicon (corazón azul y gris)
+│   └── globals.css     # Estilos globales
 ├── components/        # Componentes React reutilizables
 │   ├── auth-guard.tsx           # Protección de rutas
 │   ├── auth-provider.tsx        # Proveedor de autenticación
 │   ├── calendar-with-auth.tsx  # Componente principal del calendario
 │   ├── google-auth-button.tsx  # Botón de autenticación
 │   ├── routine-manager.tsx     # Gestor de rutinas
-│   └── theme-toggle.tsx         # Toggle de tema oscuro/claro
-└── lib/
-    └── auth-options.ts  # Configuración de NextAuth
+│   ├── theme-toggle.tsx         # Toggle de tema oscuro/claro
+│   └── providers.tsx           # Proveedores de contexto
+├── lib/
+│   ├── auth-options.ts  # Configuración de NextAuth
+│   └── chat-storage.ts  # Almacenamiento de mensajes del chat
+└── types/
+    └── next-auth.d.ts   # Tipos de TypeScript para NextAuth
+public/
+└── calendable.png      # Logo de la aplicación
 ```
 
 ## Funcionalidades Principales
@@ -78,12 +91,22 @@ El agente tiene acceso a las siguientes herramientas de calendario:
 
 ### 4. Interfaz de Usuario
 
-#### Chat Sidebar
-- Interfaz de chat en tiempo real con el agente
-- Detección automática de propuestas de rutina
-- Botones de confirmación/cancelación para propuestas
-- Preview de eventos antes de confirmarlos
-- Sugerencias rápidas de rutinas comunes
+#### Landing Page (Página Principal Pública)
+- **Diseño moderno y centrado**: Interfaz limpia con gradientes sutiles
+- **Input de chat prominente**: Campo de texto grande para iniciar conversación
+- **Logo**: Icono de corazón con gradiente azul y gris
+- **Autenticación**: Botones para iniciar sesión con Google
+- **Tema oscuro/claro**: Toggle de tema visible en el navbar
+- **Footer**: Enlaces a Política de Privacidad y Términos de Servicio
+- **Persistencia**: El mensaje del usuario se guarda en localStorage antes de autenticarse
+- **Responsive**: Diseño adaptable a diferentes tamaños de pantalla
+
+#### Página de Aplicación (Requiere Autenticación)
+- **Chat Sidebar**: Interfaz de chat en tiempo real con el agente
+- **Detección automática**: Propuestas de rutina detectadas automáticamente
+- **Botones de confirmación**: Confirmación/cancelación para propuestas
+- **Preview de eventos**: Muestra eventos propuestos antes de confirmarlos
+- **Sugerencias rápidas**: Rutinas comunes disponibles
 
 #### Calendario
 - **Tres vistas**: Día, Semana, Mes
@@ -92,6 +115,11 @@ El agente tiene acceso a las siguientes herramientas de calendario:
 - **Indicador de hora actual**: Línea roja en vistas de día/semana
 - **Navegación**: Botones para avanzar/retroceder y "Hoy"
 - **Tema**: Soporte para modo oscuro/claro
+
+#### Páginas Legales
+- **Política de Privacidad** (`/privacy`): Información sobre recopilación y uso de datos
+- **Términos de Servicio** (`/terms`): Términos y condiciones de uso
+- **Enlaces visibles**: Footer en la landing page con acceso a ambas páginas
 
 ### 5. Flujo de Creación de Rutinas
 
@@ -219,6 +247,19 @@ Usuario → Chat UI → /api/chat → Strands Agent → AWS Bedrock
 - `npm run start`: Inicia servidor de producción
 - `npm run lint`: Ejecuta ESLint
 
+## Branding y Diseño
+
+### Logo y Favicon
+- **Logo**: Icono de corazón con gradiente azul (`#3b82f6`) a gris (`#6b7280`)
+- **Favicon**: SVG del corazón ubicado en `src/app/icon.svg`
+- **Metadata**: Configurado en `layout.tsx` para usar el icono SVG
+
+### Páginas Legales
+- **Política de Privacidad**: Disponible en `/privacy`
+- **Términos de Servicio**: Disponible en `/terms`
+- **Enlaces**: Footer en la landing page con acceso a ambas páginas
+- **Cumplimiento OAuth**: Cumple con los requisitos de Google Cloud Platform para verificación OAuth
+
 ## Consideraciones de Desarrollo
 
 1. **Zona Horaria**: Configurada para `America/Lima` (modificable en `calendar-tools.ts`)
@@ -226,6 +267,7 @@ Usuario → Chat UI → /api/chat → Strands Agent → AWS Bedrock
 3. **Responsive**: Diseño adaptable, sidebar colapsable
 4. **Performance**: Lazy loading, optimizaciones de Next.js
 5. **Seguridad**: Tokens manejados en servidor, validación de fechas
+6. **Persistencia de datos**: Mensajes pendientes guardados en localStorage antes de autenticación
 
 ## Extensiones Futuras Posibles
 
