@@ -3,6 +3,7 @@
 import { Button } from "@heroui/react";
 import { signIn } from "next-auth/react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { HeartIcon } from "@/components/heart-icon";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useRef, FormEvent } from "react";
@@ -28,23 +29,6 @@ function GoogleIcon() {
         fill="#EA4335"
         d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
       />
-    </svg>
-  );
-}
-
-function HeartIcon() {
-  return (
-    <svg className="w-full h-full" viewBox="0 0 24 24" fill="none">
-      <path
-        d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
-        fill="url(#heartGradient)"
-      />
-      <defs>
-        <linearGradient id="heartGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#3b82f6" stopOpacity="1" />
-          <stop offset="100%" stopColor="#6b7280" stopOpacity="1" />
-        </linearGradient>
-      </defs>
     </svg>
   );
 }
@@ -139,7 +123,7 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen flex flex-col bg-white dark:bg-zinc-900">
       {/* Navbar */}
-      <nav className="h-14 sm:h-16 shrink-0 bg-white dark:bg-zinc-900 border-b border-zinc-200/50 dark:border-zinc-800/50">
+      <nav className="h-14 sm:h-16 shrink-0 bg-white dark:bg-zinc-900">
         <div className="h-full px-4 sm:px-6 flex items-center justify-between">
           <div className="flex items-center gap-2 sm:gap-3">
             <div className="w-7 h-7 sm:w-8 sm:h-8">

@@ -4,6 +4,7 @@ import { useSession, signOut } from "next-auth/react";
 import { AuthGuard } from "@/components/auth-guard";
 import { CalendarWithAuth } from "@/components/calendar-with-auth";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { HeartIcon } from "@/components/heart-icon";
 import {
   Button,
   Avatar,
@@ -545,14 +546,12 @@ export default function AppPage() {
     <AuthGuard>
       <main className="h-screen flex flex-col bg-white dark:bg-zinc-900">
         {/* Top Navbar - Estilo Lovable */}
-        <nav className="h-14 shrink-0 bg-white dark:bg-zinc-900 relative border-b border-zinc-200/50 dark:border-zinc-800/50">
+        <nav className="h-14 shrink-0 bg-white dark:bg-zinc-900 relative border-zinc-200/50 dark:border-zinc-800/50">
           <div className="h-full px-3 sm:px-4 flex items-center justify-between gap-2 sm:gap-4">
             {/* Logo y nombre - siempre visible */}
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-linear-to-br from-blue-600 to-blue-700 flex items-center justify-center shrink-0">
-                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
-                </svg>
+              <div className="w-6 h-6 sm:w-7 sm:h-7 shrink-0">
+                <HeartIcon />
               </div>
               <h1 className="text-sm sm:text-base font-semibold text-zinc-900 dark:text-white shrink-0">
                 Calendable

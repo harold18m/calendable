@@ -370,18 +370,19 @@ export function CalendarWithAuth({
 // Hours for the time grid (6 AM to 10 PM)
 const HOURS = Array.from({ length: 17 }, (_, i) => i + 6);
 
-// Helper to get event color (solid for real, with opacity for preview)
+// Helper to get event color - Color único estilo Google Calendar
+// Google Calendar usa un azul característico (#1a73e8 / #4285f4)
 function getEventColorClass(index: number, isPreview: boolean = false): string {
-    const colors = [
-        { solid: "bg-blue-500", preview: "bg-blue-400/50 border-2 border-dashed border-blue-500" },
-        { solid: "bg-green-500", preview: "bg-green-400/50 border-2 border-dashed border-green-500" },
-        { solid: "bg-purple-500", preview: "bg-purple-400/50 border-2 border-dashed border-purple-500" },
-        { solid: "bg-orange-500", preview: "bg-orange-400/50 border-2 border-dashed border-orange-500" },
-        { solid: "bg-pink-500", preview: "bg-pink-400/50 border-2 border-dashed border-pink-500" },
-        { solid: "bg-teal-500", preview: "bg-teal-400/50 border-2 border-dashed border-teal-500" },
-    ];
-    const color = colors[index % colors.length];
-    return isPreview ? color.preview : color.solid;
+    // Color único azul estilo Google Calendar con borde para mejor visibilidad cuando se superponen
+    // Modo claro: azul #4285f4 (blue-500)
+    // Modo oscuro: azul más claro #60a5fa (blue-400) para mejor contraste
+    if (isPreview) {
+        // Preview: azul semitransparente con borde punteado
+        return "bg-blue-400/40 dark:bg-blue-500/40 border-2 border-dashed border-blue-500 dark:border-blue-400 text-blue-900 dark:text-blue-100";
+    } else {
+        // Evento real: azul sólido estilo Google Calendar con borde para destacar cuando se superponen
+        return "bg-blue-500 dark:bg-blue-600 text-white border border-blue-600 dark:border-blue-500";
+    }
 }
 
 // Helper to get event position and height based on time
@@ -419,13 +420,13 @@ function DayView({
 
     return (
         <div className="border border-divider rounded-lg overflow-hidden h-full flex flex-col">
-            {/* Day header */}
-            <div className="bg-default-50 border-b border-divider py-2 px-3 shrink-0">
+            {/* Day header - Mejorado */}
+            <div className="bg-default-50 dark:bg-default-100/30 border-b border-divider py-3 px-4 shrink-0">
                 <div className={`text-center ${isToday ? 'text-primary' : ''}`}>
-                    <div className="text-xs text-default-400 uppercase">
+                    <div className="text-xs font-medium text-default-500 dark:text-default-400 uppercase tracking-wide mb-1">
                         {DAYS[currentDate.getDay()]}
                     </div>
-                    <div className={`text-xl font-semibold ${isToday ? 'bg-primary text-white rounded-full w-8 h-8 flex items-center justify-center mx-auto' : ''}`}>
+                    <div className={`text-2xl font-bold ${isToday ? 'bg-primary text-white rounded-full w-10 h-10 flex items-center justify-center mx-auto shadow-md ring-2 ring-primary/20' : 'text-default-700 dark:text-default-300'}`}>
                         {currentDate.getDate()}
                     </div>
                 </div>
@@ -433,14 +434,14 @@ function DayView({
 
             {/* Time grid */}
             <div className="relative overflow-y-auto flex-1 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                {/* Current time indicator */}
+                {/* Current time indicator - Mejorado visualmente */}
                 {isToday && currentTimeTop >= 0 && currentTimeTop <= HOURS.length * hourHeight && (
                     <div
                         className="absolute left-0 right-0 z-20 flex items-center pointer-events-none"
                         style={{ top: `${currentTimeTop}px` }}
                     >
-                        <div className="w-2 h-2 bg-red-500 rounded-full -ml-1" />
-                        <div className="flex-1 h-0.5 bg-red-500" />
+                        <div className="w-2.5 h-2.5 bg-red-500 rounded-full -ml-1.5 shadow-lg ring-2 ring-white dark:ring-zinc-900" />
+                        <div className="flex-1 h-0.5 bg-red-500 shadow-sm" />
                     </div>
                 )}
 
@@ -457,8 +458,8 @@ function DayView({
                                 {hour.toString().padStart(2, '0')}:00
                             </span>
                         </div>
-                        {/* Grid cell */}
-                        <div className="flex-1 border-l border-b border-divider relative" />
+                        {/* Grid cell - Mejorado con hover */}
+                        <div className="flex-1 border-l border-b border-divider relative hover:bg-default-50/50 dark:hover:bg-default-100/20 transition-colors duration-150" />
                     </div>
                 ))}
 
@@ -489,11 +490,14 @@ function DayView({
                                     }
                                 >
                                     <div
-                                        className={`absolute left-1 right-1 ${getEventColorClass(idx, isPreview)} text-white text-[10px] px-2 py-1 rounded cursor-pointer hover:opacity-90 overflow-hidden z-10 ${isPreview ? 'animate-pulse' : ''}`}
+                                        className={`absolute left-1 right-1 ${getEventColorClass(idx, isPreview)} text-[11px] px-2.5 py-1.5 rounded-md cursor-pointer transition-all duration-200 overflow-hidden z-10 shadow-sm hover:shadow-md hover:scale-[1.02] hover:z-20 ${isPreview ? 'animate-pulse' : 'hover:ring-2 hover:ring-white/30 dark:hover:ring-zinc-400/30 hover:border-blue-400 dark:hover:border-blue-400'}`}
                                         style={style}
+                                        role="button"
+                                        tabIndex={0}
+                                        aria-label={`Evento: ${event.summary || "Sin título"} a las ${startDate.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}`}
                                     >
-                                        <div className="font-medium truncate">{event.summary || "Sin título"}</div>
-                                        <div className="text-white/80 text-[9px]">
+                                        <div className="font-semibold truncate leading-tight">{event.summary || "Sin título"}</div>
+                                        <div className="text-[10px] mt-0.5 opacity-90">
                                             {startDate.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}
                                         </div>
                                     </div>
@@ -503,18 +507,31 @@ function DayView({
                 </div>
             </div>
 
-            {/* All-day events */}
+            {/* All-day events - Mejorado */}
             {dayEvents.filter(e => !e.start.dateTime).length > 0 && (
-                <div className="border-t border-divider p-2 bg-default-50">
-                    <div className="text-[10px] text-default-400 mb-1">Todo el día</div>
-                    <div className="space-y-1">
+                <div className="border-t border-divider p-3 bg-default-50 dark:bg-default-100/30 shrink-0">
+                    <div className="text-[10px] font-medium text-default-500 dark:text-default-400 uppercase tracking-wide mb-2">Todo el día</div>
+                    <div className="space-y-1.5">
                         {dayEvents.filter(e => !e.start.dateTime).map((event, idx) => (
-                            <div
+                            <Tooltip
                                 key={event.id}
-                                className={`${getEventColorClass(idx, event.isPreview)} text-white text-[10px] px-2 py-1 rounded truncate`}
+                                content={
+                                    <div className="p-1">
+                                        <p className="font-medium text-xs">
+                                            {event.isPreview && <span className="text-yellow-400">[Preview] </span>}
+                                            {event.summary}
+                                        </p>
+                                    </div>
+                                }
                             >
-                                {event.summary || "Sin título"}
-                            </div>
+                                <div
+                                    className={`${getEventColorClass(idx, event.isPreview)} text-[11px] px-2.5 py-1.5 rounded-md truncate cursor-pointer transition-all duration-150 hover:scale-[1.02] hover:shadow-sm ${event.isPreview ? 'animate-pulse' : 'hover:border-blue-400 dark:hover:border-blue-400'}`}
+                                    role="button"
+                                    tabIndex={0}
+                                >
+                                    {event.summary || "Sin título"}
+                                </div>
+                            </Tooltip>
                         ))}
                     </div>
                 </div>
@@ -542,18 +559,18 @@ function WeekView({
 
     return (
         <div className="border border-divider rounded-lg overflow-hidden h-full flex flex-col">
-            {/* Days header */}
-            <div className="grid grid-cols-[64px_repeat(7,1fr)] bg-default-50 border-b border-divider shrink-0">
+            {/* Days header - Mejorado */}
+            <div className="grid grid-cols-[64px_repeat(7,1fr)] bg-default-50 dark:bg-default-100/30 border-b border-divider shrink-0">
                 <div />
                 {weekDates.map((date, i) => {
                     const isToday = isSameDay(date, today);
                     return (
                         <div
                             key={i}
-                            className={`text-center py-2 border-l border-divider`}
+                            className={`text-center py-2.5 border-l border-divider ${isToday ? 'bg-primary/5 dark:bg-primary/10' : ''}`}
                         >
-                            <div className="text-[10px] text-default-400 uppercase">{DAYS[date.getDay()]}</div>
-                            <div className={`text-sm font-medium ${isToday ? 'bg-primary text-white rounded-full w-6 h-6 flex items-center justify-center mx-auto' : ''}`}>
+                            <div className="text-[10px] font-medium text-default-500 dark:text-default-400 uppercase tracking-wide mb-1">{DAYS[date.getDay()]}</div>
+                            <div className={`text-sm font-bold ${isToday ? 'bg-primary text-white rounded-full w-7 h-7 flex items-center justify-center mx-auto shadow-sm ring-2 ring-primary/20' : 'text-default-700 dark:text-default-300'}`}>
                                 {date.getDate()}
                             </div>
                         </div>
@@ -563,7 +580,7 @@ function WeekView({
 
             {/* Time grid */}
             <div className="relative overflow-y-auto flex-1 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                {/* Current time indicator */}
+                {/* Current time indicator - Mejorado visualmente */}
                 {todayIndex >= 0 && currentTimeTop >= 0 && currentTimeTop <= HOURS.length * hourHeight && (
                     <div
                         className="absolute z-20 flex items-center pointer-events-none"
@@ -573,8 +590,8 @@ function WeekView({
                             width: `calc((100% - 64px) / 7)`
                         }}
                     >
-                        <div className="w-2 h-2 bg-red-500 rounded-full -ml-1" />
-                        <div className="flex-1 h-0.5 bg-red-500" />
+                        <div className="w-2.5 h-2.5 bg-red-500 rounded-full -ml-1.5 shadow-lg ring-2 ring-white dark:ring-zinc-900" />
+                        <div className="flex-1 h-0.5 bg-red-500 shadow-sm" />
                     </div>
                 )}
 
@@ -591,13 +608,13 @@ function WeekView({
                                 {hour.toString().padStart(2, '0')}:00
                             </span>
                         </div>
-                        {/* Day columns */}
+                        {/* Day columns - Mejorado con hover */}
                         {weekDates.map((date, i) => {
                             const isToday = isSameDay(date, today);
                             return (
                                 <div
                                     key={i}
-                                    className={`border-l border-b border-divider ${isToday ? 'bg-primary/5' : ''}`}
+                                    className={`border-l border-b border-divider transition-colors duration-150 ${isToday ? 'bg-primary/5 dark:bg-primary/10' : 'hover:bg-default-50/50 dark:hover:bg-default-100/20'}`}
                                 />
                             );
                         })}
@@ -628,15 +645,18 @@ function WeekView({
                                 }
                             >
                                 <div
-                                    className={`absolute ${getEventColorClass(idx, isPreview)} text-white text-[9px] px-1 py-0.5 rounded cursor-pointer hover:opacity-90 overflow-hidden z-10 ${isPreview ? 'animate-pulse' : ''}`}
+                                    className={`absolute ${getEventColorClass(idx, isPreview)} text-[10px] px-1.5 py-1 rounded-md cursor-pointer transition-all duration-200 overflow-hidden z-10 shadow-sm hover:shadow-md hover:scale-[1.02] hover:z-20 ${isPreview ? 'animate-pulse' : 'hover:ring-2 hover:ring-white/30 dark:hover:ring-zinc-400/30 hover:border-blue-400 dark:hover:border-blue-400'}`}
                                     style={{
                                         ...style,
                                         left: `calc(56px + ${dayIndex} * ((100% - 56px) / 7) + 2px)`,
                                         width: `calc((100% - 56px) / 7 - 4px)`
                                     }}
+                                    role="button"
+                                    tabIndex={0}
+                                    aria-label={`Evento: ${event.summary || "Sin título"} a las ${startDate.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}`}
                                 >
-                                    <div className="font-medium truncate">{event.summary || "Sin título"}</div>
-                                    <div className="text-white/80 text-[8px]">
+                                    <div className="font-semibold truncate leading-tight">{event.summary || "Sin título"}</div>
+                                    <div className="text-[9px] mt-0.5 opacity-90">
                                         {startDate.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}
                                     </div>
                                 </div>
@@ -663,12 +683,12 @@ function MonthView({
 
     return (
         <div className="border border-divider rounded-lg overflow-hidden h-full flex flex-col">
-            {/* Days header */}
-            <div className="grid grid-cols-7 bg-default-50 shrink-0">
+            {/* Days header - Mejorado */}
+            <div className="grid grid-cols-7 bg-default-50 dark:bg-default-100/30 shrink-0">
                 {DAYS.map((day, i) => (
                     <div
                         key={i}
-                        className={`text-center py-1.5 text-[10px] text-default-400 uppercase border-b border-divider ${i > 0 ? 'border-l' : ''}`}
+                        className={`text-center py-2 text-[11px] font-semibold text-default-600 dark:text-default-400 uppercase tracking-wide border-b border-divider ${i > 0 ? 'border-l border-divider' : ''}`}
                     >
                         {day}
                     </div>
@@ -684,27 +704,43 @@ function MonthView({
                     return (
                         <div
                             key={i}
-                            className={`min-h-24 p-1 ${i % 7 > 0 ? 'border-l border-divider' : ''} ${!isFirstRow ? 'border-t border-divider' : ''} ${!isCurrentMonth ? 'bg-default-50' : ''} ${isToday ? 'bg-primary/5' : ''}`}
+                            className={`min-h-24 p-1.5 transition-colors duration-150 ${i % 7 > 0 ? 'border-l border-divider' : ''} ${!isFirstRow ? 'border-t border-divider' : ''} ${!isCurrentMonth ? 'bg-default-50/50 dark:bg-default-50/20' : ''} ${isToday ? 'bg-primary/10 dark:bg-primary/20 ring-1 ring-primary/30' : 'hover:bg-default-100/50 dark:hover:bg-default-100/20'}`}
+                            role="gridcell"
+                            aria-label={`${date.getDate()} de ${MONTHS[date.getMonth()]}`}
                         >
-                            <div className={`text-[10px] text-center mb-0.5 ${isToday ? 'bg-primary text-white rounded-full w-4 h-4 flex items-center justify-center mx-auto' : ''} ${!isCurrentMonth ? 'text-default-300' : 'text-default-600'}`}>
+                            <div className={`text-[11px] font-medium text-center mb-1 ${isToday ? 'bg-primary text-white rounded-full w-6 h-6 flex items-center justify-center mx-auto font-semibold shadow-sm' : ''} ${!isCurrentMonth ? 'text-default-400 dark:text-default-500' : 'text-default-700 dark:text-default-300'}`}>
                                 {date.getDate()}
                             </div>
-                            <div className="space-y-0.5">
+                            <div className="space-y-1">
                                 {dayEvents.slice(0, 2).map((event, idx) => (
                                     <Tooltip
                                         key={event.id}
-                                        content={event.isPreview ? `[Preview] ${event.summary}` : event.summary}
+                                        content={
+                                            <div className="p-1">
+                                                <p className="font-medium text-xs">
+                                                    {event.isPreview && <span className="text-yellow-400">[Preview] </span>}
+                                                    {event.summary}
+                                                </p>
+                                                {event.start.dateTime && (
+                                                    <p className="text-[10px] text-default-400 mt-0.5">
+                                                        {new Date(event.start.dateTime).toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        }
                                     >
                                         <div
-                                            className={`${getEventColorClass(idx, event.isPreview)} text-white text-[8px] px-0.5 rounded truncate cursor-pointer ${event.isPreview ? 'animate-pulse' : ''}`}
+                                            className={`${getEventColorClass(idx, event.isPreview)} text-[9px] px-1.5 py-0.5 rounded-md truncate cursor-pointer transition-all duration-150 hover:scale-105 hover:shadow-sm ${event.isPreview ? 'animate-pulse' : 'hover:border-blue-400 dark:hover:border-blue-400'}`}
+                                            role="button"
+                                            tabIndex={0}
                                         >
                                             {event.summary || "Sin título"}
                                         </div>
                                     </Tooltip>
                                 ))}
                                 {dayEvents.length > 2 && (
-                                    <div className="text-[8px] text-default-400 text-center">
-                                        +{dayEvents.length - 2}
+                                    <div className="text-[9px] text-default-500 dark:text-default-400 text-center font-medium py-0.5 hover:text-default-700 dark:hover:text-default-300 cursor-pointer transition-colors">
+                                        +{dayEvents.length - 2} más
                                     </div>
                                 )}
                             </div>
