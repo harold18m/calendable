@@ -374,14 +374,14 @@ const HOURS = Array.from({ length: 17 }, (_, i) => i + 6);
 // Google Calendar usa un azul característico (#1a73e8 / #4285f4)
 function getEventColorClass(index: number, isPreview: boolean = false): string {
     // Color único azul estilo Google Calendar con borde para mejor visibilidad cuando se superponen
-    // Modo claro: azul #4285f4 (blue-500)
-    // Modo oscuro: azul más claro #60a5fa (blue-400) para mejor contraste
+    // Modo claro: azul más suave #60a5fa (blue-400) 
+    // Modo oscuro: azul suave #3b82f6 (blue-500) para mejor contraste
     if (isPreview) {
         // Preview: azul semitransparente con borde punteado
-        return "bg-blue-400/40 dark:bg-blue-500/40 border-2 border-dashed border-blue-500 dark:border-blue-400 text-blue-900 dark:text-blue-100";
+        return "bg-blue-300/40 dark:bg-blue-400/40 border-2 border-dashed border-blue-400 dark:border-blue-300 text-blue-900 dark:text-blue-100";
     } else {
-        // Evento real: azul sólido estilo Google Calendar con borde para destacar cuando se superponen
-        return "bg-blue-500 dark:bg-blue-600 text-white border border-blue-600 dark:border-blue-500";
+        // Evento real: azul más suave con borde para destacar cuando se superponen
+        return "bg-blue-400 dark:bg-blue-500 text-white border border-blue-500 dark:border-blue-400";
     }
 }
 
