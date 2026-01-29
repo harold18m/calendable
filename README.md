@@ -1,137 +1,222 @@
-# CopilotKit <> strands Starter
+<p align="center">
+  <img src="public/calendable.png" alt="Calendable Logo" width="80" height="80" />
+</p>
 
-This is a starter template for building AI agents using [strands](https://strands.com) and [CopilotKit](https://copilotkit.ai). It provides a modern Next.js application with an integrated investment analyst agent that can research stocks, analyze market data, and provide investment insights.
+<h1 align="center">Calendable</h1>
 
-## Prerequisites
+<p align="center">
+  <strong>Tu calendario, tu copiloto</strong>
+</p>
 
-- Node.js 20+ 
-- Python 3.12+
-- AWS Account with Bedrock access configured
-- AWS Credentials (via environment variables, ~/.aws/credentials, or IAM role)
-- Any of the following package managers:
-  - pnpm (recommended)
-  - npm
-  - yarn
-  - bun
+<p align="center">
+  Organiza tu vida hablando. Una aplicación de calendario potenciada por IA que crea eventos, rutinas y planifica tu tiempo automáticamente.
+</p>
 
-> **Note:** This repository ignores lock files (package-lock.json, yarn.lock, pnpm-lock.yaml, bun.lockb) to avoid conflicts between different package managers. Each developer should generate their own lock file using their preferred package manager. After that, make sure to delete it from the .gitignore.
+<p align="center">
+  <a href="#características">Características</a> •
+  <a href="#demo">Demo</a> •
+  <a href="#instalación">Instalación</a> •
+  <a href="#configuración">Configuración</a> •
+  <a href="#tech-stack">Tech Stack</a> •
+  <a href="#contribuir">Contribuir</a> •
+  <a href="#licencia">Licencia</a>
+</p>
 
-## Getting Started
+---
 
-1. Install dependencies using your preferred package manager:
+## Características
+
+- **IA Conversacional** - Habla naturalmente para crear y gestionar eventos
+- **Google Calendar** - Sincronización bidireccional en tiempo real
+- **Rutinas Inteligentes** - Crea hábitos recurrentes que se adaptan a tu disponibilidad
+- **Análisis de Disponibilidad** - La IA analiza tu calendario para sugerir horarios óptimos
+- **Preview de Eventos** - Visualiza eventos propuestos antes de confirmarlos
+- **Tema Oscuro/Claro** - Interfaz adaptable a tus preferencias
+- **Responsive** - Funciona en desktop y móvil
+
+## Demo
+
+> Próximamente
+
+## Instalación
+
+### Prerrequisitos
+
+- Node.js 18+
+- Cuenta de Google Cloud Platform con Calendar API habilitada
+- Cuenta de AWS con acceso a Bedrock (para el modelo de IA)
+
+### Pasos
+
+1. **Clona el repositorio**
+
 ```bash
-# Using pnpm (recommended)
-pnpm install
+git clone https://github.com/tu-usuario/calendable.git
+cd calendable
+```
 
-# Using npm
+2. **Instala las dependencias**
+
+```bash
 npm install
-
-# Using yarn
-yarn install
-
-# Using bun
-bun install
 ```
 
-> **Note:** Installing the package dependencies will also install the agent's python dependencies via the `install:agent` script.
+3. **Configura las variables de entorno**
 
-2. Set up your AWS credentials for Bedrock:
-
-You can configure AWS credentials in one of the following ways:
-
-**Option 1: Environment Variables**
 ```bash
-export AWS_ACCESS_KEY_ID="your-access-key-id"
-export AWS_SECRET_ACCESS_KEY="your-secret-access-key"
-export AWS_REGION="us-east-1"  # or your preferred region
+cp .env.example .env.local
 ```
 
-**Option 2: AWS Credentials File**
+4. **Inicia el servidor de desarrollo**
+
 ```bash
-aws configure
-```
-
-**Option 3: Create a `.env.local` file**
-```bash
-AWS_ACCESS_KEY_ID=your-access-key-id
-AWS_SECRET_ACCESS_KEY=your-secret-access-key
-AWS_REGION=us-east-1
-BEDROCK_MODEL=claude-3-haiku  # Optional: choose your model
-```
-
-**Note:** Make sure your AWS credentials have the following IAM permissions:
-- `bedrock:InvokeModel`
-- `bedrock:InvokeModelWithResponseStream`
-
-3. Start the development server:
-```bash
-# Using pnpm
-pnpm dev
-
-# Using npm
 npm run dev
-
-# Using yarn
-yarn dev
-
-# Using bun
-bun run dev
 ```
 
-This will start both the UI and agent servers concurrently.
+5. **Abre** [http://localhost:3000](http://localhost:3000)
 
-## Available Scripts
-The following scripts can also be run using your preferred package manager:
-- `dev` - Starts both UI and agent servers in development mode
-- `dev:debug` - Starts development servers with debug logging enabled
-- `dev:ui` - Starts only the Next.js UI server
-- `dev:agent` - Starts only the strands agent server
-- `build` - Builds the Next.js application for production
-- `start` - Starts the production server
-- `lint` - Runs ESLint for code linting
-- `install:agent` - Installs Python dependencies for the agent
+## Configuración
 
-## 📚 Documentation
+Crea un archivo `.env.local` con las siguientes variables:
 
-The main UI component is in `src/app/page.tsx`. You can:
-- Modify the theme colors and styling
-- Add new frontend actions
-- Customize the CopilotKit sidebar appearance
+```env
+# Google OAuth
+GOOGLE_CLIENT_ID=tu_client_id
+GOOGLE_CLIENT_SECRET=tu_client_secret
 
-Otherwise, check out the documentation relevant to your task:
+# NextAuth
+NEXTAUTH_SECRET=tu_secret_key_generado
+NEXTAUTH_URL=http://localhost:3000
 
-- [Strands Documentation](https://strandsagents.com/latest/documentation/docs/) - Learn more about Strands and its features
-- [CopilotKit Documentation](https://docs.copilotkit.ai) - Explore CopilotKit's capabilities
-- [Next.js Documentation](https://nextjs.org/docs) - Learn about Next.js features and API
+# AWS Bedrock
+AWS_ACCESS_KEY_ID=tu_access_key
+AWS_SECRET_ACCESS_KEY=tu_secret_key
+AWS_REGION=us-east-1
 
-## Contributing
+# Modelo de IA (opcional)
+BEDROCK_MODEL=claude-3-haiku
+```
 
-Feel free to submit issues and enhancement requests! This starter is designed to be easily extensible.
+### Configurar Google OAuth
 
-## License
+1. Ve a [Google Cloud Console](https://console.cloud.google.com/)
+2. Crea un nuevo proyecto o selecciona uno existente
+3. Habilita la **Google Calendar API**
+4. Ve a **Credenciales** > **Crear credenciales** > **ID de cliente OAuth**
+5. Configura la pantalla de consentimiento OAuth
+6. Añade los URIs de redirección:
+   - `http://localhost:3000/api/auth/callback/google` (desarrollo)
+   - `https://tu-dominio.com/api/auth/callback/google` (producción)
+7. Copia el Client ID y Client Secret
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+### Configurar AWS Bedrock
 
-## Troubleshooting
+1. Accede a [AWS Console](https://console.aws.amazon.com/)
+2. Ve a **Amazon Bedrock** > **Model access**
+3. Solicita acceso a los modelos de Claude
+4. Crea un usuario IAM con los permisos:
+   - `bedrock:InvokeModel`
+   - `bedrock:InvokeModelWithResponseStream`
 
-### Agent Connection Issues
-If you see "I'm having trouble connecting to my tools", make sure:
-1. The strands agent is running on port 8000
-2. Your AWS credentials are configured correctly (check environment variables or ~/.aws/credentials)
-3. Your AWS account has access to the Bedrock models you're trying to use
-4. The AWS region you're using has the requested model available
-5. Both servers started successfully
+### Modelos disponibles
 
-### AWS Bedrock Issues
-If you encounter errors related to AWS Bedrock:
-1. Verify your AWS credentials are valid: `aws sts get-caller-identity`
-2. Check that the model is enabled in your AWS Bedrock console
-3. Ensure your IAM user/role has the required Bedrock permissions
-4. Verify the region matches where the model is available
+| Modelo | Descripción |
+|--------|-------------|
+| `claude-3-haiku` | Rápido y económico (por defecto) |
+| `claude-3.5-sonnet` | Balance entre calidad y velocidad |
+| `claude-sonnet-4` | Más potente |
 
-### Python Dependencies
-If you encounter Python import errors:
+## Tech Stack
+
+| Tecnología | Uso |
+|------------|-----|
+| [Next.js 16](https://nextjs.org/) | Framework React |
+| [TypeScript](https://www.typescriptlang.org/) | Tipado estático |
+| [Tailwind CSS 4](https://tailwindcss.com/) | Estilos |
+| [HeroUI](https://heroui.com/) | Componentes UI |
+| [Framer Motion](https://www.framer.com/motion/) | Animaciones |
+| [NextAuth.js](https://next-auth.js.org/) | Autenticación |
+| [Strands Agents SDK](https://strandsagents.com/) | Agente de IA |
+| [AWS Bedrock](https://aws.amazon.com/bedrock/) | Modelo Claude |
+| [Google Calendar API](https://developers.google.com/calendar) | Integración calendario |
+
+## Estructura del Proyecto
+
+```
+src/
+├── agent/                 # Lógica del agente de IA
+│   ├── agent.ts          # Configuración del agente
+│   └── calendar-tools.ts # Herramientas de calendario
+├── app/                   # Rutas de Next.js (App Router)
+│   ├── api/              # Endpoints API
+│   │   ├── auth/         # NextAuth
+│   │   ├── calendar/     # Calendario
+│   │   └── chat/         # Chat con el agente
+│   ├── app/              # Aplicación principal
+│   ├── privacy/          # Política de privacidad
+│   └── terms/            # Términos de servicio
+├── components/            # Componentes React
+└── lib/                   # Utilidades
+```
+
+## Scripts
+
 ```bash
-cd agent
-uv sync
+npm run dev      # Servidor de desarrollo
+npm run build    # Build de producción
+npm run start    # Servidor de producción
+npm run lint     # Linter
 ```
+
+## Herramientas del Agente
+
+El agente de IA tiene acceso a las siguientes herramientas:
+
+| Herramienta | Descripción |
+|-------------|-------------|
+| `get_current_datetime` | Obtiene fecha y hora actual |
+| `get_calendar_events` | Lista eventos en un rango |
+| `analyze_availability` | Analiza slots libres |
+| `create_calendar_event` | Crea nuevos eventos |
+| `update_calendar_event` | Actualiza eventos |
+| `delete_calendar_event` | Elimina eventos |
+| `move_calendar_event` | Mueve eventos |
+| `get_upcoming_events` | Próximos eventos |
+| `suggest_next_action` | Sugiere qué hacer ahora |
+
+## Contribuir
+
+¡Las contribuciones son bienvenidas!
+
+1. Fork el repositorio
+2. Crea una rama para tu feature (`git checkout -b feature/nueva-funcionalidad`)
+3. Commit tus cambios (`git commit -m 'Añade nueva funcionalidad'`)
+4. Push a la rama (`git push origin feature/nueva-funcionalidad`)
+5. Abre un Pull Request
+
+### Guías
+
+- Sigue el estilo de código existente
+- Añade tests si es posible
+- Actualiza la documentación si es necesario
+- Escribe mensajes de commit descriptivos
+
+## Roadmap
+
+- [ ] Soporte para múltiples calendarios
+- [ ] Notificaciones y recordatorios
+- [ ] Análisis de cumplimiento de rutinas
+- [ ] Integración con servicios de fitness
+- [ ] Plantillas de rutinas predefinidas
+- [ ] Exportación de rutinas
+- [ ] Modo offline
+
+## Licencia
+
+Este proyecto está bajo la licencia MIT. Ver el archivo [LICENSE](LICENSE) para más detalles.
+
+---
+
+<p align="center">
+  Hecho con ❤️ por la comunidad
+</p>
