@@ -118,7 +118,7 @@ export default function PrivacyPolicyPage() {
                   puedes contactarnos a través de:
                 </p>
                 <p className="text-zinc-700 dark:text-zinc-300 leading-relaxed mt-2">
-                  <strong>Email:</strong> [tu-email@ejemplo.com]
+                  <strong>Email:</strong> haroldmedrano33@gmail.com
                 </p>
               </section>
             </div>
