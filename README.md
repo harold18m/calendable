@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="public/calendable.png" alt="Calendable Logo" width="80" height="80" />
+  <img src="public/logo.svg" alt="Calendable Logo" width="80" height="80" />
 </p>
 
 <h1 align="center">Calendable</h1>
